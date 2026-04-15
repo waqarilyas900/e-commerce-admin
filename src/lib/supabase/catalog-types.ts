@@ -1,5 +1,7 @@
 /** Catalog table row shapes used by the storefront database. */
 
+import type { VariantOptionSchemaEntry } from "@/lib/variant-option-schema";
+
 export type CollectionRow = {
   id: string;
   slug: string;
@@ -55,6 +57,8 @@ export type ProductRow = {
   reviews_count: number | null;
   /** Total units; variant inventory sums to this when using parent-controlled split. */
   stock_total: number | null;
+  /** From `product_option_definitions`; set by `fetchProductWithVariants` only. */
+  option_definitions?: VariantOptionSchemaEntry[];
   created_at: string;
   updated_at: string;
 };

@@ -8,6 +8,10 @@ import type {
   ProductVariantRow,
   SizeRow,
 } from "@/lib/supabase/catalog-types";
+import {
+  optionDefinitionsFromDbRows,
+  type VariantOptionSchemaEntry,
+} from "@/lib/variant-option-schema";
 
 let warnedMissingCatalog = false;
 
@@ -174,8 +178,29 @@ export async function fetchProductWithVariants(
       };
     });
   }
+  const { data: optRows, error: optErr } = await supabase
+    .from("product_option_definitions")
+    .select("option_key, label, presentation, sort_order")
+    .eq("product_id", productId)
+    .order("sort_order", { ascending: true });
+  if (optErr) {
+    logCatalogIssue("fetchProductOptionDefinitions", optErr.message);
+  }
+
   return {
-    product: product as ProductRow,
+    product: {
+      ...(product as ProductRow),
+      option_definitions: optionDefinitionsFromDbRows(
+        optRows as
+          | {
+              option_key: string;
+              label: string;
+              presentation: string;
+              sort_order: number;
+            }[]
+          | null,
+      ),
+    },
     variants: merged,
     collectionIds,
     assets: (assetRows ?? []) as ProductAssetRow[],
@@ -203,6 +228,8 @@ export type ProductSavePayload = {
   rating: number | null;
   reviews_count: number | null;
   stock_total: number;
+  /** PDP: labels and presentation per `option_values` key (normalized table). */
+  option_definitions: VariantOptionSchemaEntry[];
 };
 
 export type VariantSavePayload = {
@@ -227,7 +254,7 @@ export async function saveProductAndVariants(
     return { id: "", error: "Database connection is not configured." };
   }
 
-  const { collection_ids, assets, ...productRest } = product;
+  const { collection_ids, assets, option_definitions, ...productRest } = product;
   const imageUrls = assets
     .filter((a) => a.kind === "image" && a.url.trim() !== "")
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -298,6 +325,31 @@ export async function saveProductAndVariants(
       .insert(normalizedAssets);
     if (paInsErr) {
       return { id, error: paInsErr.message };
+    }
+  }
+
+  const { error: optDelErr } = await supabase
+    .from("product_option_definitions")
+    .delete()
+    .eq("product_id", id);
+  if (optDelErr) {
+    return { id, error: optDelErr.message };
+  }
+  const defRows = (option_definitions ?? [])
+    .map((d, i) => ({
+      product_id: id,
+      option_key: d.key.trim().slice(0, 200),
+      label: (d.label.trim() || d.key.trim()).slice(0, 500),
+      presentation: d.presentation,
+      sort_order: i,
+    }))
+    .filter((r) => r.option_key !== "");
+  if (defRows.length > 0) {
+    const { error: optInsErr } = await supabase
+      .from("product_option_definitions")
+      .insert(defRows);
+    if (optInsErr) {
+      return { id, error: optInsErr.message };
     }
   }
 

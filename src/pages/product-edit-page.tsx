@@ -37,7 +37,43 @@ import type {
 import { slugFromLabel } from "@/lib/slug";
 import { uploadProductMedia } from "@/lib/supabase/storage";
 import { supabase } from "@/lib/supabase/client";
-import { splitStockAcrossVariants } from "@/lib/stock-split";
+import {
+  collectOptionKeysFromVariants,
+  mergeVariantKeysIntoSchema,
+  type VariantOptionSchemaEntry,
+} from "@/lib/variant-option-schema";
+
+const STOREFRONT_DIMENSION_KEYS = ["size", "color"] as const;
+type StorefrontDimensionKey = (typeof STOREFRONT_DIMENSION_KEYS)[number];
+
+function isStorefrontDimensionKey(k: string): k is StorefrontDimensionKey {
+  return k === "size" || k === "color";
+}
+
+function allowedKeysForRow(
+  rows: VariantOptionSchemaEntry[],
+  rowIndex: number,
+): StorefrontDimensionKey[] {
+  const raw = rows[rowIndex]?.key.trim() ?? "";
+  const current = isStorefrontDimensionKey(raw) ? raw : null;
+  const usedElsewhere = new Set(
+    rows
+      .map((r, j) => (j !== rowIndex ? r.key.trim() : ""))
+      .filter(isStorefrontDimensionKey),
+  );
+  return [...STOREFRONT_DIMENSION_KEYS].filter(
+    (k) => (current !== null && k === current) || !usedElsewhere.has(k),
+  );
+}
+
+function keysFromVariantForms(vs: VariantForm[]): string[] {
+  const s = new Set<string>();
+  for (const row of vs) {
+    if (row.sizeId) s.add("size");
+    if (row.colorId) s.add("color");
+  }
+  return [...s].sort((a, b) => a.localeCompare(b));
+}
 
 type VariantForm = {
   sku: string;
@@ -45,6 +81,8 @@ type VariantForm = {
   colorId: string;
   price: string;
   compareAt: string;
+  /** Units on hand for this SKU (matrix products only; simple product uses parent total). */
+  stock: string;
 };
 
 type AssetForm = {
@@ -69,6 +107,7 @@ const emptyVariant = (): VariantForm => ({
   colorId: "",
   price: "0",
   compareAt: "",
+  stock: "0",
 });
 
 function inferSizeId(sizes: SizeRow[], optionValues: Record<string, string>): string {
@@ -146,15 +185,19 @@ export function ProductEditPage() {
   const [tagsCsv, setTagsCsv] = useState("");
   const [rating, setRating] = useState(0);
   const [reviewsCount, setReviewsCount] = useState("");
-  /** Total units for the product; split evenly across matrix variants, or assigned to the single SKU. */
+  /** Total units for simple (single-SKU) products; matrix totals are the sum of per-variant stock. */
   const [parentStock, setParentStock] = useState("0");
-  /** Matrix rows (size × color). Empty = "simple" product with one SKU below. */
+  /** Matrix rows (optional size and/or color per SKU). Empty = "simple" product with one SKU below. */
   const [variants, setVariants] = useState<VariantForm[]>([]);
   /** When there are no matrix rows, this single line is saved as one variant (no size/color). */
   const [simpleSku, setSimpleSku] = useState("");
   const [simplePrice, setSimplePrice] = useState("0");
   const [simpleCompareAt, setSimpleCompareAt] = useState("");
   const [generatingSimpleSku, setGeneratingSimpleSku] = useState(false);
+  /** Storefront PDP: label + presentation per option_values key. */
+  const [variantOptionSchema, setVariantOptionSchema] = useState<
+    VariantOptionSchemaEntry[]
+  >([]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -212,6 +255,7 @@ export function ProductEditPage() {
           ),
         );
         setVariants([]);
+        setVariantOptionSchema([]);
       } else if (vv.length > 0) {
         setSimpleSku("");
         setSimplePrice("0");
@@ -231,7 +275,17 @@ export function ProductEditPage() {
               v.color_id ?? inferColorId(colorList, v.option_values ?? {}),
             price: String(v.price),
             compareAt: v.compare_at_price != null ? String(v.compare_at_price) : "",
+            stock: String(v.quantity_on_hand ?? 0),
           })),
+        );
+        const keysFromDb = collectOptionKeysFromVariants(
+          vv.map((v) => v.option_values ?? {}),
+        ).filter(isStorefrontDimensionKey);
+        const parsedSchema = (product.option_definitions ?? []).filter((r) =>
+          isStorefrontDimensionKey(r.key.trim()),
+        );
+        setVariantOptionSchema(
+          mergeVariantKeysIntoSchema(parsedSchema, keysFromDb),
         );
       } else {
         setSimpleSku("");
@@ -245,6 +299,7 @@ export function ProductEditPage() {
           ),
         );
         setVariants([]);
+        setVariantOptionSchema([]);
       }
       setLoading(false);
     })();
@@ -252,6 +307,55 @@ export function ProductEditPage() {
       cancelled = true;
     };
   }, [isNew, productId]);
+
+  function onMergeKeysFromVariantForm() {
+    const keys = keysFromVariantForms(variants).filter(isStorefrontDimensionKey);
+    setVariantOptionSchema((prev) => mergeVariantKeysIntoSchema(prev, keys));
+  }
+
+  function addDimensionRow() {
+    setVariantOptionSchema((prev) => {
+      const used = new Set(
+        prev.map((r) => r.key.trim()).filter(isStorefrontDimensionKey),
+      );
+      const nextKey = STOREFRONT_DIMENSION_KEYS.find((k) => !used.has(k));
+      if (!nextKey) return prev;
+      return [
+        ...prev,
+        {
+          key: nextKey,
+          label: nextKey === "size" ? "Size" : "Color",
+          presentation: nextKey === "color" ? "swatches" : "pills",
+          sort_order: prev.length,
+        },
+      ];
+    });
+  }
+
+  function removeDimensionRow(index: number) {
+    setVariantOptionSchema((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((r, i) => ({ ...r, sort_order: i })),
+    );
+  }
+
+  async function onRefreshVariantKeysFromDb() {
+    if (!productId || isNew || !supabase) return;
+    setError(null);
+    const res = await fetchProductWithVariants(productId);
+    if (!res) {
+      setError("Could not reload product.");
+      return;
+    }
+    const keysFromDb = collectOptionKeysFromVariants(
+      res.variants.map((v) => v.option_values ?? {}),
+    ).filter(isStorefrontDimensionKey);
+    setVariantOptionSchema((prev) =>
+      mergeVariantKeysIntoSchema(prev, keysFromDb),
+    );
+    setMessage("Variant keys refreshed from the database. Save to persist layout changes.");
+  }
 
   async function onAssetFile(key: string, e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -360,24 +464,12 @@ export function ProductEditPage() {
       }));
 
     const parentTotal = Number.parseInt(parentStock, 10);
-    if (Number.isNaN(parentTotal) || parentTotal < 0) {
-      setError("Total inventory must be a whole number zero or greater.");
-      return;
+    if (variants.length === 0) {
+      if (Number.isNaN(parentTotal) || parentTotal < 0) {
+        setError("Total inventory must be a whole number zero or greater.");
+        return;
+      }
     }
-
-    const payload: ProductSavePayload = {
-      collection_ids: Array.from(selectedCollectionIds),
-      slug,
-      name: name.trim(),
-      short_description: shortDescription.trim(),
-      description: description.trim(),
-      status,
-      assets: assetPayload,
-      tags,
-      rating: rating > 0 ? rating : null,
-      reviews_count: reviewsCount.trim() === "" ? null : Number.parseInt(reviewsCount, 10),
-      stock_total: parentTotal,
-    };
 
     const vpayload: VariantSavePayload[] = [];
 
@@ -402,49 +494,115 @@ export function ProductEditPage() {
         quantity_on_hand: parentTotal,
       });
     } else {
-      const allocations = splitStockAcrossVariants(parentTotal, variants.length);
+      const seenCombo = new Map<string, number>();
+      for (let i = 0; i < variants.length; i++) {
+        const v = variants[i]!;
+        const comboSig = `${v.sizeId || ""}\t${v.colorId || ""}`;
+        if (seenCombo.has(comboSig)) {
+          setError(
+            `Duplicate variant: rows ${seenCombo.get(comboSig)! + 1} and ${i + 1} use the same size and color. Use one row per combination or change size/color.`,
+          );
+          return;
+        }
+        seenCombo.set(comboSig, i);
+      }
       for (let i = 0; i < variants.length; i++) {
         const v = variants[i]!;
         const price = Number.parseFloat(v.price);
+        const rowStock = Number.parseInt(v.stock, 10);
         if (!v.sku.trim() || Number.isNaN(price)) {
           setError("Each variant needs SKU and valid price.");
           return;
         }
-        if (!v.sizeId) {
-          setError("Each variant must have a size (manage sizes under Sizes).");
+        if (!v.sizeId && !v.colorId) {
+          setError(
+            "Each variant needs at least a size or a color (so buyers can tell SKUs apart).",
+          );
           return;
         }
-        if (!v.colorId) {
-          setError("Each variant must have a color (manage colors under Colors).");
+        if (Number.isNaN(rowStock) || rowStock < 0) {
+          setError("Each variant needs a valid stock quantity (0 or greater).");
           return;
         }
-        const sizeLabel = sizes.find((s) => s.id === v.sizeId)?.display_name;
-        if (!sizeLabel) {
-          setError("Invalid size on a variant — refresh and pick a size again.");
-          return;
+        const option_values: Record<string, string> = {};
+        let sizeId: string | null = null;
+        if (v.sizeId) {
+          const sizeLabel = sizes.find((s) => s.id === v.sizeId)?.display_name;
+          if (!sizeLabel) {
+            setError("Invalid size on a variant — refresh and pick a size again.");
+            return;
+          }
+          option_values.size = sizeLabel;
+          sizeId = v.sizeId;
         }
-        const colorRow = colors.find((c) => c.id === v.colorId);
-        if (!colorRow) {
-          setError("Invalid color on a variant — refresh and pick a color again.");
-          return;
+        let colorId: string | null = null;
+        if (v.colorId) {
+          const colorRow = colors.find((c) => c.id === v.colorId);
+          if (!colorRow) {
+            setError("Invalid color on a variant — refresh and pick a color again.");
+            return;
+          }
+          option_values.color = colorRow.name;
+          colorId = v.colorId;
         }
-        const option_values: Record<string, string> = {
-          size: sizeLabel,
-          color: colorRow.name,
-        };
 
         vpayload.push({
           sku: v.sku.trim(),
           option_values,
-          size_id: v.sizeId,
-          color_id: v.colorId,
+          size_id: sizeId,
+          color_id: colorId,
           price,
           compare_at_price:
             v.compareAt.trim() === "" ? null : Number.parseFloat(v.compareAt),
-          quantity_on_hand: Math.max(0, allocations[i] ?? 0),
+          quantity_on_hand: rowStock,
         });
       }
     }
+
+    const matrixStockTotal = variants.reduce((sum, v) => {
+      const n = Number.parseInt(v.stock, 10);
+      return sum + (Number.isNaN(n) ? 0 : Math.max(0, n));
+    }, 0);
+
+    const schemaRows = variantOptionSchema
+      .map((r) => ({
+        key: r.key.trim(),
+        label: r.label.trim(),
+        presentation: r.presentation,
+        sort_order: r.sort_order,
+      }))
+      .filter((r) => isStorefrontDimensionKey(r.key));
+
+    const seenKeys = new Set<string>();
+    for (const r of schemaRows) {
+      if (seenKeys.has(r.key)) {
+        setError(
+          `Duplicate dimension key "${r.key}" in Storefront variant display — use each key once.`,
+        );
+        return;
+      }
+      seenKeys.add(r.key);
+    }
+
+    const schemaForSave = schemaRows.map((row, index) => ({
+      ...row,
+      sort_order: index,
+    }));
+
+    const payload: ProductSavePayload = {
+      collection_ids: Array.from(selectedCollectionIds),
+      slug,
+      name: name.trim(),
+      short_description: shortDescription.trim(),
+      description: description.trim(),
+      status,
+      assets: assetPayload,
+      tags,
+      rating: rating > 0 ? rating : null,
+      reviews_count: reviewsCount.trim() === "" ? null : Number.parseInt(reviewsCount, 10),
+      stock_total: variants.length > 0 ? matrixStockTotal : parentTotal,
+      option_definitions: schemaForSave,
+    };
 
     setSaving(true);
     const result = await saveProductAndVariants(
@@ -486,13 +644,30 @@ export function ProductEditPage() {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
-  const variantAllocPreview =
-    variants.length > 0
-      ? splitStockAcrossVariants(
-          Math.max(0, parseInt(parentStock, 10) || 0),
-          variants.length,
-        )
-      : [];
+  const matrixStockSumDisplay = variants.reduce((sum, v) => {
+    const n = Number.parseInt(v.stock, 10);
+    return sum + (Number.isNaN(n) ? 0 : Math.max(0, n));
+  }, 0);
+
+  const hasStorefrontSizeRow = variantOptionSchema.some(
+    (r) => r.key.trim() === "size",
+  );
+  const hasStorefrontColorRow = variantOptionSchema.some(
+    (r) => r.key.trim() === "color",
+  );
+  const canAddStorefrontDimension = !(
+    hasStorefrontSizeRow && hasStorefrontColorRow
+  );
+
+  function moveSchemaRow(index: number, dir: -1 | 1) {
+    setVariantOptionSchema((prev) => {
+      const j = index + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[j]] = [next[j]!, next[index]!];
+      return next.map((row, i) => ({ ...row, sort_order: i }));
+    });
+  }
 
   return (
     <div className="w-full min-w-0 space-y-8">
@@ -501,7 +676,7 @@ export function ProductEditPage() {
         title={isNew ? "New product" : "Edit product"}
         description={
           isNew
-            ? "Parent listing plus sellable SKUs. Set total inventory on the parent; with variant rows it splits evenly. One SKU uses the full total."
+            ? "Parent listing plus sellable SKUs. Set stock per variant row, or one total for a single-SKU product."
             : "Update the parent listing, media, and variant SKUs."
         }
       />
@@ -606,20 +781,31 @@ export function ProductEditPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="parent-stock">Total inventory (units)</Label>
-              <Input
-                id="parent-stock"
-                value={parentStock}
-                onChange={(e) => setParentStock(e.target.value)}
-                inputMode="numeric"
-                placeholder="0"
-              />
+              <Label htmlFor="parent-stock">
+                {variants.length > 0 ? "Total inventory (read-only sum)" : "Total inventory (units)"}
+              </Label>
+              {variants.length > 0 ? (
+                <p
+                  id="parent-stock"
+                  className="flex h-9 items-center rounded-md border border-input bg-muted/50 px-3 text-sm tabular-nums"
+                  aria-live="polite"
+                >
+                  {matrixStockSumDisplay} units across {variants.length} variant
+                  {variants.length === 1 ? "" : "s"}
+                </p>
+              ) : (
+                <Input
+                  id="parent-stock"
+                  value={parentStock}
+                  onChange={(e) => setParentStock(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="0"
+                />
+              )}
               <p className="text-xs text-muted-foreground">
-                {variants.length > 1
-                  ? `Saved total is split evenly across ${variants.length} variants (remainder goes to the first rows).`
-                  : variants.length === 1
-                    ? "Applies to the variant row below."
-                    : "Applies to the single-SKU block in Pricing & SKUs below."}
+                {variants.length > 0
+                  ? "Stock is set per variant in Pricing & SKUs. The product total is the sum of those rows."
+                  : "For a single-SKU product, this is the quantity available to sell."}
               </p>
             </div>
             <div className="space-y-2">
@@ -745,18 +931,35 @@ export function ProductEditPage() {
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Rating (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Click stars for half steps (0.5–5). Use Clear to remove the rating.
+                </p>
                 <div className="flex flex-wrap items-center gap-3">
                   <StarRatingInput
+                    key={productId ?? "new"}
                     count={5}
                     value={rating}
                     size={28}
+                    color="#94a3b8"
                     activeColor="#eab308"
                     isHalf
+                    edit
                     onChange={(v: number) => setRating(v)}
                   />
-                  <span className="text-sm text-muted-foreground">
-                    {rating > 0 ? `${rating.toFixed(1)} / 5` : "No rating"}
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {rating > 0 ? `${rating.toFixed(1)} / 5.0` : "No rating"}
                   </span>
+                  {rating > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-muted-foreground"
+                      onClick={() => setRating(0)}
+                    >
+                      Clear
+                    </Button>
+                  ) : null}
                 </div>
               </div>
               <div className="space-y-2">
@@ -769,6 +972,209 @@ export function ProductEditPage() {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Storefront variant display</CardTitle>
+            <CardDescription>
+              PDP pickers use <code className="text-[0.8rem]">size</code> and/or{" "}
+              <code className="text-[0.8rem]">color</code> only (one row each). Keys must match your variant
+              matrix <code className="text-[0.8rem]">option_values</code>. Set titles and presentation below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={addDimensionRow}
+                disabled={!canAddStorefrontDimension}
+                title={
+                  !canAddStorefrontDimension
+                    ? "You already have size and color rows."
+                    : undefined
+                }
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add dimension
+              </Button>
+              {variants.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={onMergeKeysFromVariantForm}
+                >
+                  Merge keys from variant rows
+                </Button>
+              ) : null}
+              {!isNew ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onRefreshVariantKeysFromDb()}
+                >
+                  Refresh keys from database
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Merge from variant rows</span> adds{" "}
+              <code className="text-[0.75rem]">size</code> / <code className="text-[0.75rem]">color</code> when
+              your matrix uses them, without removing rows you added manually.{" "}
+              {!isNew ? (
+                <>
+                  <span className="font-medium text-foreground">Refresh from database</span> reads live{" "}
+                  <code className="text-[0.75rem]">option_values</code> (e.g. after seed/import).
+                </>
+              ) : null}
+            </p>
+            {variantOptionSchema.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No dimensions yet — click <span className="font-medium text-foreground">Add dimension</span> or{" "}
+                <span className="font-medium text-foreground">Merge keys from variant rows</span> after adding
+                variants.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {variantOptionSchema.map((row, i) => {
+                  const keyOptions = allowedKeysForRow(variantOptionSchema, i);
+                  const keyValue = isStorefrontDimensionKey(row.key.trim())
+                    ? row.key.trim()
+                    : "";
+                  return (
+                  <div
+                    key={`dim-row-${i}-${row.key || "new"}`}
+                    className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:flex-row sm:flex-wrap sm:items-end"
+                  >
+                    <div className="min-w-0 space-y-1 sm:w-36">
+                      <Label htmlFor={`vopt-key-${i}`} className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+                        Option key
+                      </Label>
+                      <select
+                        id={`vopt-key-${i}`}
+                        value={keyValue}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setVariantOptionSchema((prev) =>
+                            prev.map((r, j) => {
+                              if (j !== i) return r;
+                              if (!isStorefrontDimensionKey(v)) {
+                                return { ...r, key: "" };
+                              }
+                              const prevKey = r.key.trim();
+                              const wasUnset = !isStorefrontDimensionKey(prevKey);
+                              return {
+                                ...r,
+                                key: v,
+                                label:
+                                  r.label.trim() === "" || wasUnset
+                                    ? v === "size"
+                                      ? "Size"
+                                      : "Color"
+                                    : r.label,
+                                presentation: wasUnset
+                                  ? v === "color"
+                                    ? "swatches"
+                                    : "pills"
+                                  : r.presentation,
+                              };
+                            }),
+                          );
+                        }}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 font-mono text-xs"
+                      >
+                        <option value="">
+                          {keyOptions.length ? "Select…" : "No keys left"}
+                        </option>
+                        {keyOptions.map((k) => (
+                          <option key={k} value={k}>
+                            {k}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1 sm:min-w-[160px]">
+                      <Label htmlFor={`vopt-label-${i}`}>Title on storefront</Label>
+                      <Input
+                        id={`vopt-label-${i}`}
+                        value={row.label}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setVariantOptionSchema((prev) =>
+                            prev.map((r, j) =>
+                              j === i ? { ...r, label: v } : r,
+                            ),
+                          );
+                        }}
+                        placeholder="e.g. Choose size"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:w-44">
+                      <Label htmlFor={`vopt-pres-${i}`}>Presentation</Label>
+                      <select
+                        id={`vopt-pres-${i}`}
+                        value={row.presentation}
+                        onChange={(e) => {
+                          const presentation = e.target
+                            .value as VariantOptionSchemaEntry["presentation"];
+                          setVariantOptionSchema((prev) =>
+                            prev.map((r, j) =>
+                              j === i ? { ...r, presentation } : r,
+                            ),
+                          );
+                        }}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      >
+                        <option value="pills">Large buttons</option>
+                        <option value="badges">Compact badges</option>
+                        <option value="swatches">Swatches (color dots)</option>
+                        <option value="dropdown">Dropdown</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        disabled={i === 0}
+                        onClick={() => moveSchemaRow(i, -1)}
+                        aria-label="Move up"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        disabled={i === variantOptionSchema.length - 1}
+                        onClick={() => moveSchemaRow(i, 1)}
+                        aria-label="Move down"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-destructive"
+                        onClick={() => removeDimensionRow(i)}
+                        aria-label="Remove dimension"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -789,16 +1195,15 @@ export function ProductEditPage() {
                     </>
                   ) : (
                     <>
-                      Each row is a child: pick{" "}
+                      Each row is a sellable SKU: pick{" "}
                       <Link to="/dashboard/sizes" className="underline underline-offset-2">
                         size
                       </Link>{" "}
-                      and{" "}
+                      and/or{" "}
                       <Link to="/dashboard/colors" className="underline underline-offset-2">
                         color
-                      </Link>
-                      , then SKU, price, and compare-at. Inventory comes from the parent total above and
-                      splits evenly across rows.
+                      </Link>{" "}
+                      (at least one per row), then SKU, price, compare-at, and stock.
                     </>
                   )}
                 </CardDescription>
@@ -811,6 +1216,9 @@ export function ProductEditPage() {
                 onClick={() =>
                   setVariants((v) => {
                     if (v.length === 0) {
+                      const seed = Number.parseInt(parentStock, 10);
+                      const stockSeed =
+                        !Number.isNaN(seed) && seed >= 0 ? String(seed) : "0";
                       return [
                         {
                           sku: simpleSku.trim(),
@@ -818,6 +1226,7 @@ export function ProductEditPage() {
                           colorId: "",
                           price: simplePrice.trim() === "" ? "0" : simplePrice,
                           compareAt: simpleCompareAt,
+                          stock: stockSeed,
                         },
                       ];
                     }
@@ -886,13 +1295,25 @@ export function ProductEditPage() {
               </div>
             ) : null}
             {variants.length > 0 && sizes.length === 0 ? (
-              <p className="text-sm text-destructive">
-                No sizes in the database. Add sizes under Sizes before saving variants.
+              <p className="text-sm text-muted-foreground">
+                No sizes defined yet — you can still save{" "}
+                <span className="font-medium text-foreground">color-only</span> variants, or add
+                sizes under{" "}
+                <Link to="/dashboard/sizes" className="underline underline-offset-2">
+                  Sizes
+                </Link>
+                .
               </p>
             ) : null}
             {variants.length > 0 && colors.length === 0 ? (
-              <p className="text-sm text-destructive">
-                No colors in the database. Add colors under Colors before saving variants.
+              <p className="text-sm text-muted-foreground">
+                No colors defined yet — you can still save{" "}
+                <span className="font-medium text-foreground">size-only</span> variants, or add
+                swatches under{" "}
+                <Link to="/dashboard/colors" className="underline underline-offset-2">
+                  Colors
+                </Link>
+                .
               </p>
             ) : null}
             {variants.map((v, i) => (
@@ -911,7 +1332,7 @@ export function ProductEditPage() {
                 </p>
                 <div className="grid gap-3 md:grid-cols-12 md:items-end">
                 <div className="md:col-span-2">
-                  <Label>Size</Label>
+                  <Label>Size (optional)</Label>
                   <select
                     value={v.sizeId}
                     onChange={(e) => {
@@ -920,9 +1341,8 @@ export function ProductEditPage() {
                       setVariants(next);
                     }}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                    required
                   >
-                    <option value="">—</option>
+                    <option value="">— None —</option>
                     {sizeChoices(sizes, v.sizeId).map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.display_name}
@@ -932,7 +1352,7 @@ export function ProductEditPage() {
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <Label>Color</Label>
+                  <Label>Color (optional)</Label>
                   <select
                     value={v.colorId}
                     onChange={(e) => {
@@ -941,9 +1361,8 @@ export function ProductEditPage() {
                       setVariants(next);
                     }}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                    required
                   >
-                    <option value="">—</option>
+                    <option value="">— None —</option>
                     {colorChoices(colors, v.colorId).map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -952,7 +1371,7 @@ export function ProductEditPage() {
                     ))}
                   </select>
                 </div>
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                   <Label>SKU</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                     <Input
@@ -1008,12 +1427,18 @@ export function ProductEditPage() {
                     }}
                   />
                 </div>
-                <div className="md:col-span-2 flex flex-col justify-end">
-                  <Label>Inventory split</Label>
-                  <p className="text-sm tabular-nums text-muted-foreground">
-                    {variantAllocPreview[i] ?? 0} units
-                  </p>
-                  <p className="text-[0.65rem] text-muted-foreground">From parent total</p>
+                <div className="md:col-span-2">
+                  <Label>Stock</Label>
+                  <Input
+                    value={v.stock}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      const next = [...variants];
+                      next[i] = { ...next[i], stock: e.target.value };
+                      setVariants(next);
+                    }}
+                  />
+                  <p className="mt-1 text-[0.65rem] text-muted-foreground">Units for this SKU</p>
                 </div>
                 <div className="flex md:col-span-12">
                   <Button
