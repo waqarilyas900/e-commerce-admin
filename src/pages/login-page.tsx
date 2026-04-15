@@ -47,12 +47,12 @@ export function LoginPage() {
   const busy = sessionLoading || isSubmitting;
 
   return (
-    <Card className="border-border/80 shadow-xl shadow-black/5 dark:shadow-black/20">
-      <CardHeader className="space-y-1 pb-2">
+    <Card className="border-border/70 shadow-xl shadow-black/[0.06] dark:shadow-black/40">
+      <CardHeader className="space-y-2 pb-2">
         <CardTitle className="text-2xl font-semibold tracking-tight">
           Welcome back
         </CardTitle>
-        <CardDescription className="text-base leading-relaxed">
+        <CardDescription className="text-[0.9375rem] leading-relaxed">
           Sign in with your administrator email and password to open the
           dashboard.
         </CardDescription>

@@ -1,7 +1,14 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FlashMessage } from "@/components/dashboard/flash-message";
+import {
+  ADMIN_LIST_CARD_CLASS,
+  ADMIN_LIST_CARD_HEADER_CLASS,
+  ADMIN_LIST_CARD_CONTENT_CLASS,
+  ADMIN_LIST_PAGE_CLASS,
+} from "@/components/dashboard/admin-list-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -61,18 +68,18 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Profile"
         description="Your admin profile uses the same sign-in as the storefront. Email changes are managed in your authentication provider settings."
       />
 
-      <Card className="mx-auto w-full max-w-2xl">
-        <CardHeader>
+      <Card className={cn(ADMIN_LIST_CARD_CLASS, "mx-auto w-full max-w-2xl")}>
+        <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
           <CardTitle>Account</CardTitle>
           <CardDescription>Display name is stored on the auth user record.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
           <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
             {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
             {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}

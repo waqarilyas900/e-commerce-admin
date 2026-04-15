@@ -3,10 +3,11 @@ import { cn } from "@/lib/utils";
 export type FlashVariant = "error" | "success" | "info";
 
 const variantClass: Record<FlashVariant, string> = {
-  error: "border-destructive/35 bg-destructive/10 text-destructive dark:text-destructive",
+  error:
+    "border-destructive/30 bg-destructive/[0.08] text-destructive shadow-sm dark:text-destructive-foreground",
   success:
-    "border-emerald-500/35 bg-emerald-500/[0.08] text-emerald-900 dark:text-emerald-300",
-  info: "border-border bg-muted/40 text-muted-foreground",
+    "border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-900 shadow-sm dark:text-emerald-300",
+  info: "border-border/80 bg-muted/50 text-muted-foreground shadow-sm",
 };
 
 export function FlashMessage({
@@ -22,7 +23,7 @@ export function FlashMessage({
     <div
       role={variant === "error" ? "alert" : "status"}
       className={cn(
-        "rounded-lg border px-4 py-3 text-sm leading-relaxed",
+        "rounded-xl border px-4 py-3.5 text-sm leading-relaxed",
         variantClass[variant],
         className,
       )}

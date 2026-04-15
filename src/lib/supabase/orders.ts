@@ -111,6 +111,25 @@ export async function fetchOrdersAdmin(options?: {
   return (data ?? []) as unknown as OrderRow[];
 }
 
+export async function fetchOrdersByUserIdAdmin(
+  userId: string,
+  options?: { limit?: number },
+): Promise<OrderRow[]> {
+  if (!supabase) return [];
+  const limit = Math.min(options?.limit ?? 100, 300);
+  const { data, error } = await supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    logOrders("fetchOrdersByUserIdAdmin", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as OrderRow[];
+}
+
 export async function fetchOrderByIdAdmin(
   orderId: string,
 ): Promise<OrderRow | null> {

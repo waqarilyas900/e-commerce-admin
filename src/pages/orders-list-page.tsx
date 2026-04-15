@@ -1,22 +1,24 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FlashMessage } from "@/components/dashboard/flash-message";
 import {
+  AdminListCard,
+  AdminListSkeleton,
+  AdminListEmpty,
+  AdminFilterBar,
+  ADMIN_LIST_PAGE_CLASS,
   TableContainer,
   ADMIN_TABLE_HEAD,
   ADMIN_TABLE_ROW,
-} from "@/components/dashboard/table-container";
+  adminTh,
+  adminThEnd,
+  adminTd,
+  AdminRowEditLink,
+} from "@/components/dashboard/admin-list-shell";
 import { fetchOrdersAdmin, type OrderRow, type OrderStatus } from "@/lib/supabase/orders";
 import { formatMinorUnits } from "@/lib/format-money";
 import { supabase } from "@/lib/supabase/client";
@@ -72,8 +74,28 @@ export function OrdersListPage() {
     void load();
   }, [filter]);
 
+  const filterButtons = (
+    <AdminFilterBar>
+      {STATUS_FILTER.map((f) => (
+        <Button
+          key={f.value}
+          type="button"
+          size="sm"
+          variant={filter === f.value ? "default" : "ghost"}
+          className={cn(
+            "rounded-lg",
+            filter === f.value ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => setFilter(f.value)}
+        >
+          {f.label}
+        </Button>
+      ))}
+    </AdminFilterBar>
+  );
+
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Orders"
         description="Checkout orders from your storefront (PKR; amounts stored in paisa). Fulfill and update status as you process each order."
@@ -87,80 +109,58 @@ export function OrdersListPage() {
 
       {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <CardTitle>Order desk</CardTitle>
-            <CardDescription>
-              Guest and signed-in checkouts appear here. Open a row for line items, shipping snapshot, and status
-              updates.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FILTER.map((f) => (
-              <Button
-                key={f.value}
-                type="button"
-                size="sm"
-                variant={filter === f.value ? "default" : "outline"}
-                onClick={() => setFilter(f.value)}
-              >
-                {f.label}
-              </Button>
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No orders match this filter.</p>
-          ) : (
-            <TableContainer>
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead>
-                  <tr className={ADMIN_TABLE_HEAD}>
-                    <th className="px-3 py-2.5 pr-4">Reference</th>
-                    <th className="px-3 py-2.5 pr-4">Customer</th>
-                    <th className="px-3 py-2.5 pr-4">Total</th>
-                    <th className="px-3 py-2.5 pr-4">Status</th>
-                    <th className="px-3 py-2.5 pr-4">Placed</th>
-                    <th className="px-3 py-2.5" />
+      <AdminListCard
+        title="Order desk"
+        description="Guest and signed-in checkouts appear here. Open a row for line items, shipping snapshot, and status updates."
+        headerRight={filterButtons}
+      >
+        {loading ? (
+          <AdminListSkeleton rows={3} />
+        ) : rows.length === 0 ? (
+          <AdminListEmpty>No orders match this filter.</AdminListEmpty>
+        ) : (
+          <TableContainer>
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                <tr className={ADMIN_TABLE_HEAD}>
+                  <th className={adminTh()}>Reference</th>
+                  <th className={adminTh()}>Customer</th>
+                  <th className={adminTh()}>Total</th>
+                  <th className={adminTh()}>Status</th>
+                  <th className={adminTh()}>Placed</th>
+                  <th className={adminThEnd()} />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((o) => (
+                  <tr key={o.id} className={ADMIN_TABLE_ROW}>
+                    <td className={adminTd("font-mono text-xs")}>{o.order_number ?? o.id.slice(0, 8)}</td>
+                    <td className={adminTd()}>
+                      <span className="block max-w-[220px] truncate" title={o.email}>
+                        {o.email || "—"}
+                      </span>
+                    </td>
+                    <td className={adminTd("tabular-nums")}>
+                      {formatMinorUnits(o.total_cents, o.currency)}
+                    </td>
+                    <td className={adminTd()}>
+                      <Badge variant={statusVariant(o.status)} className="capitalize">
+                        {o.status}
+                      </Badge>
+                    </td>
+                    <td className={adminTd("text-muted-foreground")}>
+                      {new Date(o.created_at).toLocaleString()}
+                    </td>
+                    <td className={cn(adminTd(), "text-right")}>
+                      <AdminRowEditLink to={`/dashboard/orders/${o.id}`}>Open</AdminRowEditLink>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((o) => (
-                    <tr key={o.id} className={ADMIN_TABLE_ROW}>
-                      <td className="px-3 py-2.5 pr-4 font-mono text-xs">
-                        {o.order_number ?? o.id.slice(0, 8)}
-                      </td>
-                      <td className="px-3 py-2.5 pr-4">
-                        <span className="block truncate max-w-[220px]" title={o.email}>
-                          {o.email || "—"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 pr-4 tabular-nums">
-                        {formatMinorUnits(o.total_cents, o.currency)}
-                      </td>
-                      <td className="px-3 py-2.5 pr-4">
-                        <Badge variant={statusVariant(o.status)}>{o.status}</Badge>
-                      </td>
-                      <td className="px-3 py-2.5 pr-4 text-muted-foreground">
-                        {new Date(o.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/dashboard/orders/${o.id}`}>Open</Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </tbody>
+            </table>
+          </TableContainer>
+        )}
+      </AdminListCard>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Headphones, Package, ShoppingCart, Store } from "lucide-react";
+import { Headphones, Heart, Mail, Package, ShoppingCart, Store } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { fetchDashboardStats } from "@/lib/supabase/dashboard-stats";
-
 function fmt(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   return n.toLocaleString();
@@ -42,21 +41,42 @@ export function StatCards() {
       delta: "Moderation queue",
       icon: Headphones,
     },
+    {
+      label: "Wishlist saves",
+      value: fmt(stats?.wishlistSaveCount),
+      delta: "Storefront hearts + option demand",
+      icon: Heart,
+    },
+    {
+      label: "Restock queue",
+      value: fmt(stats?.restockQueuePendingCount),
+      delta: "Pending email jobs",
+      icon: Mail,
+    },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {items.map((s) => {
         const Icon = s.icon;
         return (
-          <Card key={s.label}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <span className="text-sm font-medium text-muted-foreground">{s.label}</span>
-              <Icon className="h-4 w-4 text-muted-foreground" />
+          <Card
+            key={s.label}
+            className="group overflow-hidden border-border/70 bg-gradient-to-b from-card to-card/80 shadow-sm transition-shadow duration-200 hover:shadow-md"
+          >
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <div className="space-y-1">
+                <span className="text-sm font-medium text-muted-foreground">{s.label}</span>
+                <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+                  {s.value}
+                </p>
+              </div>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold tracking-tight">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.delta}</p>
+            <CardContent className="pt-0">
+              <p className="text-xs leading-snug text-muted-foreground">{s.delta}</p>
             </CardContent>
           </Card>
         );

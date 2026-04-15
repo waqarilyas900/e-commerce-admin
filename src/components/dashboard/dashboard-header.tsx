@@ -35,7 +35,7 @@ export function DashboardHeader({ onOpenMobileNav }: DashboardHeaderProps) {
   const segments = path.split("/").filter(Boolean);
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border/80 bg-background/90 px-4 shadow-[0_1px_0_0_hsl(var(--border)/0.45)] backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 md:px-6">
       <MobileSidebarTrigger onClick={onOpenMobileNav} />
       <Separator orientation="vertical" className="hidden h-6 md:block" />
       <Breadcrumb className="min-w-0 flex-1">

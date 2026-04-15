@@ -9,4 +9,5 @@ export * from "@/lib/supabase/orders";
 export * from "@/lib/supabase/customers";
 export * from "@/lib/supabase/reviews-admin";
 export * from "@/lib/supabase/dashboard-stats";
+export * from "@/lib/supabase/wishlist-admin";
 export * from "@/lib/supabase/store-settings";

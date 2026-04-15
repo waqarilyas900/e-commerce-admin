@@ -1,6 +1,13 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import {
+  ADMIN_LIST_CARD_CLASS,
+  ADMIN_LIST_CARD_HEADER_CLASS,
+  ADMIN_LIST_CARD_CONTENT_CLASS,
+  ADMIN_LIST_PAGE_CLASS,
+} from "@/components/dashboard/admin-list-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -124,7 +131,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Settings"
         description="Store configuration is saved to Supabase (store_settings). Workspace preferences stay in this browser."
@@ -133,14 +140,14 @@ export function SettingsPage() {
       {storeErr ? <FlashMessage variant="error">{storeErr}</FlashMessage> : null}
 
       <form onSubmit={onSaveStore} className="mx-auto w-full max-w-3xl space-y-6">
-        <Card>
-          <CardHeader>
+        <Card className={ADMIN_LIST_CARD_CLASS}>
+          <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
             <CardTitle>Store (database)</CardTitle>
             <CardDescription>
               Singleton row <code className="text-xs">public.store_settings</code> — used by checkout and catalog helpers.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
             {storeLoading ? (
               <p className="text-sm text-muted-foreground">Loading store settings…</p>
             ) : (
@@ -189,12 +196,12 @@ export function SettingsPage() {
       </form>
 
       <form onSubmit={onSubmit} className="mx-auto w-full max-w-3xl space-y-6">
-        <Card>
-          <CardHeader>
+        <Card className={ADMIN_LIST_CARD_CLASS}>
+          <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
             <CardTitle>Workspace</CardTitle>
             <CardDescription>Shown in the window title and command palette hints.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
             <div className="space-y-2">
               <Label htmlFor={dnId}>Display name</Label>
               <Input
@@ -207,12 +214,12 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className={ADMIN_LIST_CARD_CLASS}>
+          <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
             <CardTitle>Notifications</CardTitle>
             <CardDescription>Choose which alerts you want when in-app notifications are enabled.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
             <label className="flex cursor-pointer items-center gap-3 text-sm">
               <input
                 type="checkbox"

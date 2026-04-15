@@ -1,25 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, RefreshCw } from "lucide-react";
+import { Package, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FlashMessage } from "@/components/dashboard/flash-message";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import {
+  AdminListCard,
+  AdminListSkeleton,
+  ADMIN_LIST_PAGE_CLASS,
   TableContainer,
   ADMIN_TABLE_HEAD,
   ADMIN_TABLE_ROW,
-} from "@/components/dashboard/table-container";
+  adminTh,
+  adminThEnd,
+  adminTd,
+  AdminRowEditLink,
+} from "@/components/dashboard/admin-list-shell";
 import { fetchProductsWithVariantCount } from "@/lib/supabase/catalog";
 import type { ProductRow } from "@/lib/supabase/catalog-types";
 import { supabase } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 type Row = ProductRow & { variant_count: number };
 
@@ -51,7 +53,7 @@ export function ProductsListPage() {
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Products"
         description="Parent listings and sellable SKUs: each product can have variants (size, color, etc.) with their own price and stock."
@@ -73,57 +75,61 @@ export function ProductsListPage() {
 
       {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory</CardTitle>
-          <CardDescription>
-            Add electronics listings with <strong>Add product</strong>, or import catalog data using your usual deployment
-            process. Variants are counted per parent below.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No products yet. Use Add product to create your first listing.</p>
-          ) : (
-            <TableContainer>
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead>
-                  <tr className={ADMIN_TABLE_HEAD}>
-                    <th className="px-3 py-2.5 pr-4">Name</th>
-                    <th className="px-3 py-2.5 pr-4">Slug</th>
-                    <th className="px-3 py-2.5 pr-4">Status</th>
-                    <th className="px-3 py-2.5 pr-4">Variants</th>
-                    <th className="px-3 py-2.5" />
+      <AdminListCard
+        title="Catalog"
+        description="Manage listings and variant counts. Open a row to edit details, media, and SKUs."
+      >
+        {loading ? (
+          <AdminListSkeleton />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title="No products yet"
+            description="Create your first listing to appear on the storefront. You can add variants, images, and inventory in the editor."
+          >
+            <Button size="sm" asChild>
+              <Link to="/dashboard/products/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Add product
+              </Link>
+            </Button>
+          </EmptyState>
+        ) : (
+          <TableContainer>
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className={ADMIN_TABLE_HEAD}>
+                  <th className={adminTh()}>Name</th>
+                  <th className={adminTh()}>Slug</th>
+                  <th className={adminTh()}>Status</th>
+                  <th className={adminTh()}>Variants</th>
+                  <th className={adminThEnd()} />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id} className={ADMIN_TABLE_ROW}>
+                    <td className={adminTd("font-medium text-foreground")}>{p.name}</td>
+                    <td className={adminTd("font-mono text-xs text-muted-foreground")}>{p.slug}</td>
+                    <td className={adminTd()}>
+                      <Badge
+                        variant={p.status === "active" ? "success" : "secondary"}
+                        className="font-medium capitalize"
+                      >
+                        {p.status}
+                      </Badge>
+                    </td>
+                    <td className={adminTd("tabular-nums text-muted-foreground")}>{p.variant_count}</td>
+                    <td className={cn(adminTd(), "text-right")}>
+                      <AdminRowEditLink to={`/dashboard/products/${p.id}`} />
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((p) => (
-                    <tr key={p.id} className={ADMIN_TABLE_ROW}>
-                      <td className="px-3 py-2.5 pr-4 font-medium">{p.name}</td>
-                      <td className="px-3 py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                        {p.slug}
-                      </td>
-                      <td className="px-3 py-2.5 pr-4">
-                        <Badge variant={p.status === "active" ? "success" : "secondary"}>
-                          {p.status}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2.5 pr-4 tabular-nums">{p.variant_count}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/dashboard/products/${p.id}`}>Edit</Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </tbody>
+            </table>
+          </TableContainer>
+        )}
+      </AdminListCard>
     </div>
   );
 }

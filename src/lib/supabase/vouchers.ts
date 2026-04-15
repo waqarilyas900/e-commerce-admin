@@ -151,6 +151,36 @@ export async function fetchVoucherBatchStatsById(id: string): Promise<VoucherBat
   };
 }
 
+export async function fetchVoucherInstancesByPublicUserId(
+  publicUserId: string,
+  limit = 80,
+): Promise<VoucherInstanceRow[]> {
+  if (!supabase) return [];
+  const cap = Math.min(limit, 200);
+  const { data, error } = await supabase
+    .from("voucher_instances")
+    .select(
+      "id, batch_id, code, voucher_label, assigned_public_user_id, redeemed_at, order_id, created_at, override_discount_type, override_voucher_amount, override_min_order_amount, override_valid_from, override_valid_until, override_product_scope, override_product_ids",
+    )
+    .eq("assigned_public_user_id", publicUserId)
+    .order("created_at", { ascending: false })
+    .limit(cap);
+  if (error) {
+    logErr("fetchVoucherInstancesByPublicUserId", error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      ...(row as VoucherInstanceRow),
+      voucher_label: (r.voucher_label as string | null | undefined) ?? null,
+      override_product_ids: Array.isArray(r.override_product_ids)
+        ? (r.override_product_ids as string[])
+        : null,
+    };
+  });
+}
+
 export async function fetchVoucherInstances(batchId: string): Promise<VoucherInstanceRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase

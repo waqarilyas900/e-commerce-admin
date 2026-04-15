@@ -2,7 +2,14 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ActivityChart } from "@/components/dashboard/activity-chart";
 import { DistributionChart } from "@/components/dashboard/distribution-chart";
+import {
+  ADMIN_LIST_CARD_CLASS,
+  ADMIN_LIST_CARD_HEADER_CLASS,
+  ADMIN_LIST_CARD_CONTENT_CLASS,
+  ADMIN_LIST_PAGE_CLASS,
+} from "@/components/dashboard/admin-list-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { fetchOrdersAggregatesSince } from "@/lib/supabase/dashboard-stats";
 import { formatMinorUnits } from "@/lib/format-money";
@@ -73,7 +80,7 @@ export function AnalyticsPage() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Analytics"
         description="Order economics from your database; charts below remain illustrative until you connect traffic sources."
@@ -100,12 +107,12 @@ export function AnalyticsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
-          <Card key={k.label}>
-            <CardHeader className="pb-2">
+          <Card key={k.label} className={ADMIN_LIST_CARD_CLASS}>
+            <CardHeader className={cn(ADMIN_LIST_CARD_HEADER_CLASS, "pb-2")}>
               <CardDescription>{k.label}</CardDescription>
               <CardTitle className="text-2xl tabular-nums">{k.value}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "pt-0")}>
               <p className="text-xs text-muted-foreground">{k.hint}</p>
             </CardContent>
           </Card>
@@ -117,14 +124,14 @@ export function AnalyticsPage() {
         <DistributionChart />
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className={ADMIN_LIST_CARD_CLASS}>
+        <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
           <CardTitle>Traffic funnels</CardTitle>
           <CardDescription>
             Product views and cart steps require client-side or server analytics — not stored in Postgres by default.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
           <p className="text-sm text-muted-foreground">
             When you add event tracking, replace this card with conversion steps (view → cart → checkout → paid).
           </p>

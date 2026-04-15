@@ -14,10 +14,18 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FlashMessage } from "@/components/dashboard/flash-message";
 import {
+  ADMIN_LIST_CARD_CLASS,
+  ADMIN_LIST_CARD_HEADER_CLASS,
+  ADMIN_LIST_CARD_CONTENT_CLASS,
+  ADMIN_LIST_PAGE_CLASS,
   TableContainer,
   ADMIN_TABLE_HEAD,
   ADMIN_TABLE_ROW,
-} from "@/components/dashboard/table-container";
+  adminTh,
+  adminThEnd,
+  adminTd,
+} from "@/components/dashboard/admin-list-shell";
+import { cn } from "@/lib/utils";
 import {
   fetchOrderByIdAdmin,
   fetchOrderItemsAdmin,
@@ -111,7 +119,7 @@ export function OrderDetailPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title={order?.order_number ? `Order ${order.order_number}` : "Order detail"}
         description="Line items, shipping snapshot, and fulfillment status. Updates append to the status timeline."
@@ -145,12 +153,12 @@ export function OrderDetailPage() {
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
+            <Card className={cn(ADMIN_LIST_CARD_CLASS, "lg:col-span-2")}>
+              <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
                 <CardTitle>Summary</CardTitle>
                 <CardDescription>Totals in {order.currency} (minor units in database).</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+              <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "grid gap-3 text-sm sm:grid-cols-2")}>
                 <div>
                   <p className="text-muted-foreground">Status</p>
                   <Badge className="mt-1">{order.status}</Badge>
@@ -180,12 +188,12 @@ export function OrderDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
+            <Card className={ADMIN_LIST_CARD_CLASS}>
+              <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
                 <CardTitle>Update status</CardTitle>
                 <CardDescription>Writes order row + timeline entry.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
                 <div className="space-y-2">
                   <Label htmlFor="status-select">Next status</Label>
                   <select
@@ -219,12 +227,12 @@ export function OrderDetailPage() {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
+          <Card className={ADMIN_LIST_CARD_CLASS}>
+            <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
               <CardTitle>Customer & shipping</CardTitle>
               <CardDescription>Snapshot from checkout (editable only via support tools elsewhere).</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 text-sm md:grid-cols-2">
+            <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "grid gap-4 text-sm md:grid-cols-2")}>
               <div>
                 <p className="text-muted-foreground">Email</p>
                 <p className="font-medium">{order.email || "—"}</p>
@@ -261,11 +269,11 @@ export function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
+          <Card className={ADMIN_LIST_CARD_CLASS}>
+            <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
               <CardTitle>Line items</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
               {items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No line items.</p>
               ) : (
@@ -273,23 +281,23 @@ export function OrderDetailPage() {
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <thead>
                       <tr className={ADMIN_TABLE_HEAD}>
-                        <th className="px-3 py-2.5 pr-4">Product</th>
-                        <th className="px-3 py-2.5 pr-4">SKU</th>
-                        <th className="px-3 py-2.5 pr-4">Unit</th>
-                        <th className="px-3 py-2.5 pr-4">Qty</th>
-                        <th className="px-3 py-2.5">Line</th>
+                        <th className={adminTh()}>Product</th>
+                        <th className={adminTh()}>SKU</th>
+                        <th className={adminTh()}>Unit</th>
+                        <th className={adminTh()}>Qty</th>
+                        <th className={adminThEnd()}>Line</th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((line) => (
                         <tr key={line.id} className={ADMIN_TABLE_ROW}>
-                          <td className="px-3 py-2.5 pr-4">{line.product_name_snapshot}</td>
-                          <td className="px-3 py-2.5 pr-4 font-mono text-xs">{line.sku_snapshot}</td>
-                          <td className="px-3 py-2.5 pr-4 tabular-nums">
+                          <td className={adminTd()}>{line.product_name_snapshot}</td>
+                          <td className={adminTd("font-mono text-xs")}>{line.sku_snapshot}</td>
+                          <td className={adminTd("tabular-nums")}>
                             {formatMinorUnits(line.unit_price_cents, order.currency)}
                           </td>
-                          <td className="px-3 py-2.5 pr-4 tabular-nums">{line.quantity}</td>
-                          <td className="px-3 py-2.5 tabular-nums">
+                          <td className={adminTd("tabular-nums")}>{line.quantity}</td>
+                          <td className={adminTd("tabular-nums")}>
                             {formatMinorUnits(line.unit_price_cents * line.quantity, order.currency)}
                           </td>
                         </tr>
@@ -301,12 +309,12 @@ export function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
+          <Card className={ADMIN_LIST_CARD_CLASS}>
+            <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
               <CardTitle>Status timeline</CardTitle>
               <CardDescription>Append-only history (place_order + manual updates).</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
               {history.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No history rows yet.</p>
               ) : (

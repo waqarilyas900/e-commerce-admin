@@ -57,6 +57,40 @@ export async function fetchReviewsAdmin(options?: {
   }));
 }
 
+export async function fetchReviewsByUserIdAdmin(
+  userId: string,
+  limit = 80,
+): Promise<ReviewAdminRow[]> {
+  if (!supabase) return [];
+  const cap = Math.min(limit, 200);
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("id, product_id, user_id, rating, title, body, status, created_at, updated_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(cap);
+  if (error) {
+    logReviews("fetchReviewsByUserIdAdmin", error.message);
+    return [];
+  }
+  const rows = (data ?? []) as ReviewAdminRow[];
+  const pids = [...new Set(rows.map((r) => r.product_id))];
+  if (pids.length === 0) return rows;
+  const { data: prows, error: pErr } = await supabase
+    .from("products")
+    .select("id, name")
+    .in("id", pids);
+  if (pErr) {
+    logReviews("fetchReviewsByUserIdAdmin products", pErr.message);
+    return rows;
+  }
+  const nameById = new Map((prows ?? []).map((p) => [(p as { id: string }).id, (p as { name: string }).name]));
+  return rows.map((r) => ({
+    ...r,
+    product_name: nameById.get(r.product_id) ?? null,
+  }));
+}
+
 export async function updateReviewStatusAdmin(
   reviewId: string,
   status: ReviewModerationStatus,

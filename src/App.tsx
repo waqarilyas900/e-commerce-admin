@@ -16,10 +16,10 @@ import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { LoginPage } from "@/pages/login-page";
 import { DashboardHome } from "@/pages/dashboard-home";
 import { AnalyticsPage } from "@/pages/analytics-page";
-import { ManagementPage } from "@/pages/management-page";
+import { CustomersListPage } from "@/pages/customers-list-page";
+import { CustomerDetailPage } from "@/pages/customer-detail-page";
 import { SettingsPage } from "@/pages/settings-page";
 import { ProfilePage } from "@/pages/profile-page";
-import { DataTablePage } from "@/pages/data-table-page";
 import { ProductsListPage } from "@/pages/products-list-page";
 import { ProductEditPage } from "@/pages/product-edit-page";
 import { CollectionsListPage } from "@/pages/collections-list-page";
@@ -33,6 +33,7 @@ import { VoucherEditPage } from "@/pages/voucher-edit-page";
 import { OrdersListPage } from "@/pages/orders-list-page";
 import { OrderDetailPage } from "@/pages/order-detail-page";
 import { ReviewsListPage } from "@/pages/reviews-list-page";
+import { WishlistAdminPage } from "@/pages/wishlist-admin-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -84,10 +85,10 @@ function AppRoutes() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardHome />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
-          <Route path="/dashboard/management" element={<ManagementPage />} />
+          <Route path="/dashboard/customers" element={<CustomersListPage />} />
+          <Route path="/dashboard/customers/:customerId" element={<CustomerDetailPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
           <Route path="/dashboard/profile" element={<ProfilePage />} />
-          <Route path="/dashboard/data" element={<DataTablePage />} />
           <Route path="/dashboard/products" element={<ProductsListPage />} />
           <Route path="/dashboard/products/:productId" element={<ProductEditPage />} />
           <Route path="/dashboard/collections" element={<CollectionsListPage />} />
@@ -101,6 +102,7 @@ function AppRoutes() {
           <Route path="/dashboard/orders" element={<OrdersListPage />} />
           <Route path="/dashboard/orders/:orderId" element={<OrderDetailPage />} />
           <Route path="/dashboard/reviews" element={<ReviewsListPage />} />
+          <Route path="/dashboard/wishlist" element={<WishlistAdminPage />} />
         </Route>
       </Route>
 

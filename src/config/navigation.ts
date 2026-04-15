@@ -1,9 +1,7 @@
 import {
   LayoutDashboard,
   LineChart,
-  FolderCog,
   Settings,
-  Table2,
   Package,
   Layers,
   Ruler,
@@ -11,6 +9,8 @@ import {
   TicketPercent,
   ClipboardList,
   MessageSquare,
+  Heart,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,65 +20,48 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
-export const mainNavItems: NavItem[] = [
+export type NavGroup = {
+  id: string;
+  label: string;
+  items: NavItem[];
+};
+
+export const navGroups: NavGroup[] = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
+    id: "overview",
+    label: "Overview",
+    items: [
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Analytics", url: "/dashboard/analytics", icon: LineChart },
+    ],
   },
   {
-    title: "Analytics",
-    url: "/dashboard/analytics",
-    icon: LineChart,
+    id: "catalog",
+    label: "Catalog",
+    items: [
+      { title: "Products", url: "/dashboard/products", icon: Package },
+      { title: "Collections", url: "/dashboard/collections", icon: Layers },
+      { title: "Sizes", url: "/dashboard/sizes", icon: Ruler },
+      { title: "Colors", url: "/dashboard/colors", icon: Palette },
+    ],
   },
   {
-    title: "Management",
-    url: "/dashboard/management",
-    icon: FolderCog,
+    id: "commerce",
+    label: "Commerce",
+    items: [
+      { title: "Orders", url: "/dashboard/orders", icon: ClipboardList },
+      { title: "Customers", url: "/dashboard/customers", icon: Users },
+      { title: "Vouchers", url: "/dashboard/vouchers", icon: TicketPercent },
+      { title: "Reviews", url: "/dashboard/reviews", icon: MessageSquare },
+      { title: "Wishlist", url: "/dashboard/wishlist", icon: Heart },
+    ],
   },
   {
-    title: "Products",
-    url: "/dashboard/products",
-    icon: Package,
-  },
-  {
-    title: "Orders",
-    url: "/dashboard/orders",
-    icon: ClipboardList,
-  },
-  {
-    title: "Sizes",
-    url: "/dashboard/sizes",
-    icon: Ruler,
-  },
-  {
-    title: "Colors",
-    url: "/dashboard/colors",
-    icon: Palette,
-  },
-  {
-    title: "Collections",
-    url: "/dashboard/collections",
-    icon: Layers,
-  },
-  {
-    title: "Vouchers",
-    url: "/dashboard/vouchers",
-    icon: TicketPercent,
-  },
-  {
-    title: "Reviews",
-    url: "/dashboard/reviews",
-    icon: MessageSquare,
-  },
-  {
-    title: "Data",
-    url: "/dashboard/data",
-    icon: Table2,
-  },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: Settings,
+    id: "system",
+    label: "Workspace",
+    items: [{ title: "Settings", url: "/dashboard/settings", icon: Settings }],
   },
 ];
+
+/** Flat list for breadcrumbs, command palette fallbacks, and legacy imports */
+export const mainNavItems: NavItem[] = navGroups.flatMap((g) => g.items);

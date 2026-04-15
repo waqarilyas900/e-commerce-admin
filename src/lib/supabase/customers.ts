@@ -1,11 +1,17 @@
 import { supabase } from "@/lib/supabase/client";
 
+const USER_SELECT =
+  "id, auth_id, first_name, last_name, phone, gender, date_of_birth, signup_provider, created_at, updated_at";
+
 export type PublicUserRow = {
   id: string;
   auth_id: string;
   first_name: string;
   last_name: string;
   phone: string;
+  gender: string | null;
+  date_of_birth: string | null;
+  signup_provider: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -20,7 +26,7 @@ export async function fetchCustomersAdmin(limit = 200): Promise<PublicUserRow[]>
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("users")
-    .select("id, auth_id, first_name, last_name, phone, created_at, updated_at")
+    .select(USER_SELECT)
     .order("created_at", { ascending: false })
     .limit(Math.min(limit, 500));
   if (error) {
@@ -28,6 +34,20 @@ export async function fetchCustomersAdmin(limit = 200): Promise<PublicUserRow[]>
     return [];
   }
   return (data ?? []) as PublicUserRow[];
+}
+
+export async function fetchCustomerByIdAdmin(id: string): Promise<PublicUserRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("users")
+    .select(USER_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logCustomers("fetchCustomerByIdAdmin", error.message);
+    return null;
+  }
+  return (data ?? null) as PublicUserRow | null;
 }
 
 /** Order counts per user_id from recent orders (bounded query). */

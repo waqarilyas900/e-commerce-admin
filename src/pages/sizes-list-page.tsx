@@ -3,20 +3,21 @@ import { Link } from "react-router-dom";
 import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FlashMessage } from "@/components/dashboard/flash-message";
 import {
+  AdminListCard,
+  AdminListSkeleton,
+  AdminListEmpty,
+  ADMIN_LIST_PAGE_CLASS,
   TableContainer,
   ADMIN_TABLE_HEAD,
   ADMIN_TABLE_ROW,
-} from "@/components/dashboard/table-container";
+  adminTh,
+  adminThEnd,
+  adminTd,
+  AdminRowEditLink,
+} from "@/components/dashboard/admin-list-shell";
 import { fetchSizes } from "@/lib/supabase/catalog";
 import type { SizeRow } from "@/lib/supabase/catalog-types";
 import { supabase } from "@/lib/supabase/client";
@@ -49,7 +50,7 @@ export function SizesListPage() {
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Sizes"
         description="Global list used when creating product variants (S, M, L, shoe sizes, etc.)."
@@ -71,61 +72,51 @@ export function SizesListPage() {
 
       {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All sizes</CardTitle>
-          <CardDescription>
-            Display name is customer-facing; name is the internal key. Inactive rows stay on saved
-            variants but are hidden from new picks. Deleting clears FK on variants.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sizes yet.</p>
-          ) : (
-            <TableContainer>
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className={ADMIN_TABLE_HEAD}>
-                    <th className="px-3 py-2.5 pr-4">Display name</th>
-                    <th className="px-3 py-2.5 pr-4">Name</th>
-                    <th className="px-3 py-2.5 pr-4">Type</th>
-                    <th className="px-3 py-2.5 pr-4">Sort</th>
-                    <th className="px-3 py-2.5 pr-4">Status</th>
-                    <th className="px-3 py-2.5" />
+      <AdminListCard
+        title="All sizes"
+        description="Display name is customer-facing; name is the internal key. Inactive rows stay on saved variants but are hidden from new picks. Deleting clears FK on variants."
+      >
+        {loading ? (
+          <AdminListSkeleton />
+        ) : rows.length === 0 ? (
+          <AdminListEmpty>No sizes yet.</AdminListEmpty>
+        ) : (
+          <TableContainer>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className={ADMIN_TABLE_HEAD}>
+                  <th className={adminTh()}>Display name</th>
+                  <th className={adminTh()}>Name</th>
+                  <th className={adminTh()}>Type</th>
+                  <th className={adminTh()}>Sort</th>
+                  <th className={adminTh()}>Status</th>
+                  <th className={adminThEnd()} />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr key={s.id} className={ADMIN_TABLE_ROW}>
+                    <td className={adminTd("font-medium")}>{s.display_name}</td>
+                    <td className={adminTd("font-mono text-xs text-muted-foreground")}>{s.name}</td>
+                    <td className={adminTd("capitalize")}>{s.size_type}</td>
+                    <td className={adminTd("tabular-nums text-muted-foreground")}>{s.sort_order}</td>
+                    <td className={adminTd()}>
+                      {s.is_active ? (
+                        <Badge variant="success">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </td>
+                    <td className={adminTd("text-right")}>
+                      <AdminRowEditLink to={`/dashboard/sizes/${s.id}`} />
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((s) => (
-                    <tr key={s.id} className={ADMIN_TABLE_ROW}>
-                      <td className="px-3 py-2.5 pr-4 font-medium">{s.display_name}</td>
-                      <td className="px-3 py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                        {s.name}
-                      </td>
-                      <td className="px-3 py-2.5 pr-4 capitalize">{s.size_type}</td>
-                      <td className="px-3 py-2.5 pr-4">{s.sort_order}</td>
-                      <td className="px-3 py-2.5 pr-4">
-                        {s.is_active ? (
-                          <Badge variant="success">Active</Badge>
-                        ) : (
-                          <Badge variant="secondary">Inactive</Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                          <Link to={`/dashboard/sizes/${s.id}`}>Edit</Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </tbody>
+            </table>
+          </TableContainer>
+        )}
+      </AdminListCard>
     </div>
   );
 }

@@ -30,10 +30,4 @@ export default defineConfig([
     files: ['src/components/ui/**/*', 'src/contexts/**/*'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },
-  {
-    files: ['src/pages/data-table-page.tsx'],
-    rules: {
-      'react-hooks/incompatible-library': 'off',
-    },
-  },
 ])

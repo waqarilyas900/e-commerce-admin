@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import { Fragment, useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, Layers, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -16,6 +16,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ADMIN_LIST_CARD_CLASS,
+  ADMIN_LIST_CARD_HEADER_CLASS,
+  ADMIN_LIST_CARD_CONTENT_CLASS,
+} from "@/components/dashboard/admin-list-shell";
+import {
+  QuickAddColorDialog,
+  QuickAddSizeDialog,
+} from "@/components/dashboard/product-quick-add-size-color-dialogs";
+import { cn } from "@/lib/utils";
 import {
   fetchCollections,
   fetchColors,
@@ -158,6 +170,62 @@ function buildAssetsFromLoad(
   return [newAssetRow()];
 }
 
+const PRODUCT_EDIT_STEPS = 6;
+
+function ProductFormSection({
+  step,
+  title,
+  description,
+  children,
+  className,
+  headerRight,
+  id,
+  cardHeaderClassName,
+}: {
+  step: number;
+  title: ReactNode;
+  description?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  headerRight?: ReactNode;
+  id?: string;
+  cardHeaderClassName?: string;
+}) {
+  return (
+    <Card
+      id={id ?? `product-form-step-${step}`}
+      className={cn(ADMIN_LIST_CARD_CLASS, "scroll-mt-4", className)}
+    >
+      <CardHeader
+        className={cn(
+          ADMIN_LIST_CARD_HEADER_CLASS,
+          "space-y-3 bg-muted/25 dark:bg-muted/10",
+          cardHeaderClassName,
+        )}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className="inline-flex h-7 shrink-0 items-center rounded-full bg-primary/10 px-2.5 text-xs font-semibold tabular-nums text-primary"
+                aria-label={`Section ${step} of ${PRODUCT_EDIT_STEPS}`}
+              >
+                {step}/{PRODUCT_EDIT_STEPS}
+              </span>
+              <CardTitle className="text-lg">{title}</CardTitle>
+            </div>
+            {description ? <CardDescription>{description}</CardDescription> : null}
+          </div>
+          {headerRight ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{headerRight}</div>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-6")}>{children}</CardContent>
+    </Card>
+  );
+}
+
 export function ProductEditPage() {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
@@ -173,6 +241,9 @@ export function ProductEditPage() {
   const [storeDisplayName, setStoreDisplayName] = useState("Store");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quickSizeOpen, setQuickSizeOpen] = useState(false);
+  const [quickColorOpen, setQuickColorOpen] = useState(false);
+  const [catalogHint, setCatalogHint] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [shortDescription, setShortDescription] = useState("");
@@ -206,6 +277,31 @@ export function ProductEditPage() {
     void fetchColors().then(setColors);
     void fetchStoreNameForSku().then(setStoreDisplayName);
   }, []);
+
+  useEffect(() => {
+    if (!catalogHint) return;
+    const t = window.setTimeout(() => setCatalogHint(null), 4500);
+    return () => window.clearTimeout(t);
+  }, [catalogHint]);
+
+  function mergeSizeIntoState(row: SizeRow) {
+    setSizes((prev) =>
+      [...prev, row].sort(
+        (a, b) =>
+          a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name),
+      ),
+    );
+    setCatalogHint(`Size “${row.display_name}” saved — it’s in the size dropdown now.`);
+  }
+
+  function mergeColorIntoState(row: ColorRow) {
+    setColors((prev) =>
+      [...prev, row].sort(
+        (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
+      ),
+    );
+    setCatalogHint(`Color “${row.name}” saved — it’s in the color dropdown now.`);
+  }
 
   useEffect(() => {
     if (isNew || !productId || !supabase) {
@@ -634,14 +730,47 @@ export function ProductEditPage() {
 
   if (!supabase) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
-      </p>
+      <Card className="max-w-lg border-dashed border-amber-500/40 bg-amber-500/[0.06]">
+        <CardHeader>
+          <CardTitle className="text-base">Connection required</CardTitle>
+          <CardDescription>
+            Set <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_SUPABASE_URL</code> and{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_SUPABASE_ANON_KEY</code> in{" "}
+            <span className="font-mono text-xs">.env</span>, then restart the dev server.
+          </CardDescription>
+        </CardHeader>
+      </Card>
     );
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return (
+      <div className="w-full min-w-0 space-y-8">
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-full max-w-md" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-full max-w-lg" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-56" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const matrixStockSumDisplay = variants.reduce((sum, v) => {
@@ -670,6 +799,7 @@ export function ProductEditPage() {
   }
 
   return (
+    <Fragment>
     <div className="w-full min-w-0 space-y-8">
       <PageHeader
         backLink={{ to: "/dashboard/products", label: "Products" }}
@@ -682,73 +812,117 @@ export function ProductEditPage() {
       />
 
       {isNew ? (
-        <div className="w-full rounded-xl border border-dashed border-primary/30 bg-primary/[0.04] px-4 py-3 text-sm leading-relaxed text-muted-foreground dark:bg-primary/10">
-          <span className="font-medium text-foreground">Parent + sellable SKUs.</span> The parent is
+        <div
+          role="note"
+          className="w-full rounded-xl border border-primary/20 bg-primary/[0.06] px-5 py-4 text-sm leading-relaxed text-muted-foreground shadow-sm dark:bg-primary/10"
+        >
+          <span className="font-semibold text-foreground">Parent + sellable SKUs.</span> The parent is
           the listing (name, gallery, description). With no variant rows, you enter one SKU and
           price/stock for the product itself. Use &quot;Add variant&quot; when you need size/color
-          combinations — each row is a child SKU. One Save stores everything.
+          combinations — each row is a child SKU. One save stores everything.
         </div>
       ) : null}
 
       {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
       {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
 
-      <form onSubmit={(e) => void onSubmit(e)} className="w-full max-w-none space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Parent product</CardTitle>
-            <CardDescription>
-              Shared storefront listing: title, gallery, and copy. Set one SKU below when you are
-              not using size/color variants, or set pricing on each variant row.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  autoComplete="off"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Storefront URL:{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.8rem]">
-                    /products/{slugFromLabel(name) || "…"}
-                  </code>
-                </p>
+      <form onSubmit={(e) => void onSubmit(e)} className="w-full max-w-none space-y-8">
+        <nav
+          aria-label="On this page"
+          className="flex flex-wrap items-baseline gap-x-4 gap-y-2 rounded-xl border border-border/60 bg-muted/15 px-4 py-3 text-sm dark:bg-muted/10"
+        >
+          <span className="font-medium text-foreground">On this page</span>
+          <a href="#product-form-step-1" className="text-primary underline-offset-4 hover:underline">
+            Basics
+          </a>
+          <a href="#product-form-step-2" className="text-primary underline-offset-4 hover:underline">
+            Description
+          </a>
+          <a href="#product-form-step-3" className="text-primary underline-offset-4 hover:underline">
+            Media
+          </a>
+          <a href="#product-form-step-4" className="text-primary underline-offset-4 hover:underline">
+            PDP options
+          </a>
+          <a href="#product-form-step-5" className="text-primary underline-offset-4 hover:underline">
+            Pricing &amp; SKUs
+          </a>
+          <a href="#product-form-step-6" className="text-primary underline-offset-4 hover:underline">
+            Tags &amp; proof
+          </a>
+        </nav>
+
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-8">
+          <div className="min-w-0 space-y-8" aria-label="Listing content">
+        <ProductFormSection
+          step={1}
+          title="Basics & visibility"
+          description="Name, status, short line, and where this listing appears in your catalog."
+        >
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">Listing</p>
+              <p className="text-xs text-muted-foreground">
+                Shown on cards and search. The name generates the product URL.
+              </p>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="name">Product name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Storefront URL:{" "}
+                    <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.8rem]">
+                      /products/{slugFromLabel(name) || "…"}
+                    </code>
+                  </p>
+                </div>
+                <div className="space-y-2 sm:max-w-xs">
+                  <Label htmlFor="status">Status</Label>
+                  <NativeSelect
+                    id="status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as "draft" | "active")}
+                  >
+                    <option value="draft">Draft — hidden from storefront</option>
+                    <option value="active">Active — visible to customers</option>
+                  </NativeSelect>
+                  <p className="text-xs text-muted-foreground">
+                    Draft products are not shown on the live catalog.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2 sm:col-span-2 sm:max-w-xs">
-                <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as "draft" | "active")}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                >
-                  <option value="draft">draft</option>
-                  <option value="active">active</option>
-                </select>
+              <div className="space-y-2">
+                <Label htmlFor="short">Short description</Label>
+                <Input
+                  id="short"
+                  value={shortDescription}
+                  onChange={(e) => setShortDescription(e.target.value)}
+                  placeholder="One line for cards and SEO"
+                />
               </div>
             </div>
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-medium leading-none">Collections</legend>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">Collections</p>
               <p className="text-xs text-muted-foreground">
-                Leave none selected to show this product only on &quot;All products&quot;. You can pick
-                multiple.
+                Leave none selected to show this product only under &quot;All products&quot;. You can
+                select multiple.
               </p>
-              <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-input p-3">
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-input/80 bg-muted/10 p-4 dark:bg-muted/5">
                 {collections.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     No collections yet — create some under Collections.
                   </p>
                 ) : (
                   collections.map((c) => (
                     <label
                       key={c.id}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
+                      className="flex cursor-pointer items-center gap-3 rounded-md py-1 text-sm transition-colors hover:bg-muted/40"
                     >
                       <input
                         type="checkbox"
@@ -761,80 +935,57 @@ export function ProductEditPage() {
                             return next;
                           });
                         }}
-                        className="h-4 w-4 rounded border-input"
+                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                       />
                       <span>
-                        {c.name}{" "}
+                        <span className="font-medium">{c.name}</span>{" "}
                         <span className="text-muted-foreground">({c.slug})</span>
                       </span>
                     </label>
                   ))
                 )}
               </div>
-            </fieldset>
-            <div className="space-y-2">
-              <Label htmlFor="short">Short description</Label>
-              <Input
-                id="short"
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="parent-stock">
-                {variants.length > 0 ? "Total inventory (read-only sum)" : "Total inventory (units)"}
-              </Label>
-              {variants.length > 0 ? (
-                <p
-                  id="parent-stock"
-                  className="flex h-9 items-center rounded-md border border-input bg-muted/50 px-3 text-sm tabular-nums"
-                  aria-live="polite"
-                >
-                  {matrixStockSumDisplay} units across {variants.length} variant
-                  {variants.length === 1 ? "" : "s"}
-                </p>
-              ) : (
-                <Input
-                  id="parent-stock"
-                  value={parentStock}
-                  onChange={(e) => setParentStock(e.target.value)}
-                  inputMode="numeric"
-                  placeholder="0"
-                />
-              )}
-              <p className="text-xs text-muted-foreground">
-                {variants.length > 0
-                  ? "Stock is set per variant in Pricing & SKUs. The product total is the sum of those rows."
-                  : "For a single-SKU product, this is the quantity available to sell."}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="desc">Description</Label>
-              <ProductDescriptionEditor
-                id="desc"
-                value={description}
-                onChange={setDescription}
-              />
-              <p className="text-xs text-muted-foreground">
-                Rich text is stored as HTML and shown on the storefront with the same formatting.
-              </p>
-            </div>
+          </div>
+        </ProductFormSection>
 
-            <div className="space-y-2 border-t border-border pt-4">
-              <Label>Media gallery</Label>
-              <p className="text-xs text-muted-foreground">
-                Multiple images and videos (MP4, WebM, MOV). Uploads go to your store media folder (
-                <code className="text-[0.75rem]">products/media/</code>) or paste an external URL. The first image is
-                used on product cards.
-              </p>
-              <div className="space-y-3">
+        <ProductFormSection
+          step={2}
+          title="Long description"
+          description="Rich text is stored as HTML and shown on the product page with the same formatting."
+        >
+          <div className="space-y-2">
+            <Label htmlFor="desc" className="sr-only">
+              Description
+            </Label>
+            <ProductDescriptionEditor
+              id="desc"
+              value={description}
+              onChange={setDescription}
+            />
+          </div>
+        </ProductFormSection>
+
+        <ProductFormSection
+          step={3}
+          title="Media gallery"
+          description={
+            <>
+              Images and videos (MP4, WebM, MOV). Uploads go to{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.75rem]">products/media/</code> or
+              paste an external URL. The first asset is used on product cards.
+            </>
+          }
+        >
+              <div className="space-y-4">
                 {assets.map((row, i) => (
                   <div
                     key={row.key}
-                    className="rounded-lg border border-border p-3 space-y-2"
+                    className="rounded-xl border border-border/80 bg-card p-4 shadow-sm space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <select
+                      <NativeSelect
+                        containerClassName="w-[min(100%,9rem)] shrink-0"
                         value={row.kind}
                         onChange={(e) => {
                           const k = e.target.value as "image" | "video";
@@ -842,11 +993,10 @@ export function ProductEditPage() {
                             prev.map((r) => (r.key === row.key ? { ...r, kind: k } : r)),
                           );
                         }}
-                        className="rounded-md border border-input bg-background px-2 py-1 text-sm"
                       >
                         <option value="image">Image</option>
                         <option value="video">Video</option>
-                      </select>
+                      </NativeSelect>
                       <Input
                         type="file"
                         accept="image/*,video/mp4,video/webm,video/quicktime"
@@ -884,26 +1034,31 @@ export function ProductEditPage() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    <Input
-                      placeholder="https://…"
-                      value={row.url}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setAssets((prev) =>
-                          prev.map((r) => (r.key === row.key ? { ...r, url: v } : r)),
-                        );
-                      }}
-                    />
-                    <Input
-                      placeholder="Alt text (optional)"
-                      value={row.alt_text}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setAssets((prev) =>
-                          prev.map((r) => (r.key === row.key ? { ...r, alt_text: v } : r)),
-                        );
-                      }}
-                    />
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Media URL</Label>
+                      <Input
+                        placeholder="https://…"
+                        value={row.url}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setAssets((prev) =>
+                            prev.map((r) => (r.key === row.key ? { ...r, url: v } : r)),
+                          );
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Alt text (optional)</Label>
+                      <Input
+                        value={row.alt_text}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setAssets((prev) =>
+                            prev.map((r) => (r.key === row.key ? { ...r, alt_text: v } : r)),
+                          );
+                        }}
+                      />
+                    </div>
                     {row.url ? (
                       <div className="text-xs text-muted-foreground truncate">{row.url}</div>
                     ) : null}
@@ -922,69 +1077,23 @@ export function ProductEditPage() {
                   Add media row
                 </Button>
               </div>
-            </div>
+        </ProductFormSection>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
-              <Input id="tags" value={tagsCsv} onChange={(e) => setTagsCsv(e.target.value)} />
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Rating (optional)</Label>
-                <p className="text-xs text-muted-foreground">
-                  Click stars for half steps (0.5–5). Use Clear to remove the rating.
-                </p>
-                <div className="flex flex-wrap items-center gap-3">
-                  <StarRatingInput
-                    key={productId ?? "new"}
-                    count={5}
-                    value={rating}
-                    size={28}
-                    color="#94a3b8"
-                    activeColor="#eab308"
-                    isHalf
-                    edit
-                    onChange={(v: number) => setRating(v)}
-                  />
-                  <span className="text-sm text-muted-foreground tabular-nums">
-                    {rating > 0 ? `${rating.toFixed(1)} / 5.0` : "No rating"}
-                  </span>
-                  {rating > 0 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-xs text-muted-foreground"
-                      onClick={() => setRating(0)}
-                    >
-                      Clear
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reviews">Reviews count (optional)</Label>
-                <Input
-                  id="reviews"
-                  value={reviewsCount}
-                  onChange={(e) => setReviewsCount(e.target.value)}
-                  inputMode="numeric"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Storefront variant display</CardTitle>
-            <CardDescription>
-              PDP pickers use <code className="text-[0.8rem]">size</code> and/or{" "}
-              <code className="text-[0.8rem]">color</code> only (one row each). Keys must match your variant
-              matrix <code className="text-[0.8rem]">option_values</code>. Set titles and presentation below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <div className="min-w-0 space-y-8" aria-label="Storefront, pricing, and discovery">
+        <ProductFormSection
+          step={4}
+          title="PDP option labels (size & color)"
+          description={
+            <>
+              How pickers appear on the product page. Keys must match your variant matrix{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.8rem]">option_values</code> — only{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.8rem]">size</code> and{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.8rem]">color</code> (one row each).
+            </>
+          }
+        >
+          <div className="space-y-5">
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -1049,14 +1158,16 @@ export function ProductEditPage() {
                   return (
                   <div
                     key={`dim-row-${i}-${row.key || "new"}`}
-                    className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:flex-row sm:flex-wrap sm:items-end"
+                    className="flex flex-col gap-4 rounded-xl border border-border/80 bg-muted/15 p-4 sm:flex-row sm:flex-wrap sm:items-end dark:bg-muted/10"
                   >
-                    <div className="min-w-0 space-y-1 sm:w-36">
-                      <Label htmlFor={`vopt-key-${i}`} className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+                    <div className="min-w-0 space-y-2 sm:w-36">
+                      <Label htmlFor={`vopt-key-${i}`} className="text-xs font-medium text-foreground">
                         Option key
                       </Label>
-                      <select
+                      <NativeSelect
                         id={`vopt-key-${i}`}
+                        className="font-mono text-xs"
+                        containerClassName="sm:w-36"
                         value={keyValue}
                         onChange={(e) => {
                           const v = e.target.value;
@@ -1086,7 +1197,6 @@ export function ProductEditPage() {
                             }),
                           );
                         }}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 font-mono text-xs"
                       >
                         <option value="">
                           {keyOptions.length ? "Select…" : "No keys left"}
@@ -1096,7 +1206,7 @@ export function ProductEditPage() {
                             {k}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="min-w-0 flex-1 space-y-1 sm:min-w-[160px]">
                       <Label htmlFor={`vopt-label-${i}`}>Title on storefront</Label>
@@ -1114,10 +1224,11 @@ export function ProductEditPage() {
                         placeholder="e.g. Choose size"
                       />
                     </div>
-                    <div className="space-y-1 sm:w-44">
+                    <div className="space-y-2 sm:w-48">
                       <Label htmlFor={`vopt-pres-${i}`}>Presentation</Label>
-                      <select
+                      <NativeSelect
                         id={`vopt-pres-${i}`}
+                        containerClassName="sm:w-48"
                         value={row.presentation}
                         onChange={(e) => {
                           const presentation = e.target
@@ -1128,13 +1239,12 @@ export function ProductEditPage() {
                             ),
                           );
                         }}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                       >
                         <option value="pills">Large buttons</option>
                         <option value="badges">Compact badges</option>
                         <option value="swatches">Swatches (color dots)</option>
                         <option value="dropdown">Dropdown</option>
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       <Button
@@ -1175,85 +1285,150 @@ export function ProductEditPage() {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </ProductFormSection>
 
-        <Card className="border-l-4 border-l-primary/35 bg-muted/20">
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Layers className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-                  Pricing &amp; SKUs
-                </CardTitle>
-                <CardDescription>
-                  {variants.length === 0 ? (
-                    <>
-                      One SKU covers the whole product. Use{" "}
-                      <span className="font-medium text-foreground">Add variant</span> when you
-                      need separate size/color rows.
-                    </>
-                  ) : (
-                    <>
-                      Each row is a sellable SKU: pick{" "}
-                      <Link to="/dashboard/sizes" className="underline underline-offset-2">
-                        size
-                      </Link>{" "}
-                      and/or{" "}
-                      <Link to="/dashboard/colors" className="underline underline-offset-2">
-                        color
-                      </Link>{" "}
-                      (at least one per row), then SKU, price, compare-at, and stock.
-                    </>
-                  )}
-                </CardDescription>
-              </div>
+        <ProductFormSection
+          step={5}
+          className={cn(
+            "border-l-4 border-l-primary/40 bg-muted/10 dark:bg-muted/5",
+          )}
+          cardHeaderClassName="bg-muted/20 dark:bg-muted/10"
+          title={
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Layers className="h-5 w-5 shrink-0" aria-hidden />
+              </span>
+              Pricing &amp; SKUs
+            </span>
+          }
+          description={
+            variants.length === 0 ? (
+              <>
+                One SKU covers the whole product. Use{" "}
+                <span className="font-medium text-foreground">Add variant</span> when you need
+                separate size/color rows.
+              </>
+            ) : (
+              <>
+                Each row is a sellable SKU: pick{" "}
+                <Link to="/dashboard/sizes" className="underline underline-offset-2">
+                  size
+                </Link>{" "}
+                and/or{" "}
+                <Link to="/dashboard/colors" className="underline underline-offset-2">
+                  color
+                </Link>{" "}
+                (at least one per row), then SKU, price, compare-at, and stock.
+              </>
+            )
+          }
+          headerRight={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() =>
+                setVariants((v) => {
+                  if (v.length === 0) {
+                    const seed = Number.parseInt(parentStock, 10);
+                    const stockSeed =
+                      !Number.isNaN(seed) && seed >= 0 ? String(seed) : "0";
+                    return [
+                      {
+                        sku: simpleSku.trim(),
+                        sizeId: "",
+                        colorId: "",
+                        price: simplePrice.trim() === "" ? "0" : simplePrice,
+                        compareAt: simpleCompareAt,
+                        stock: stockSeed,
+                      },
+                    ];
+                  }
+                  return [...v, emptyVariant()];
+                })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add variant
+            </Button>
+          }
+        >
+          <div className="rounded-xl border border-border/80 bg-muted/20 p-4 dark:bg-muted/10">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Inventory
+            </p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              {variants.length > 0
+                ? "Total is the sum of per-variant stock in the rows below."
+                : "For a single-SKU product, enter total units available to sell (used when you add variants or for internal totals)."}
+            </p>
+            <div className="space-y-2 sm:max-w-md">
+              <Label htmlFor="parent-stock">
+                {variants.length > 0 ? "Total inventory (calculated)" : "Total inventory (units)"}
+              </Label>
+              {variants.length > 0 ? (
+                <p
+                  id="parent-stock"
+                  className="flex h-10 items-center rounded-lg border border-input bg-muted/40 px-3 text-sm tabular-nums dark:bg-muted/20"
+                  aria-live="polite"
+                >
+                  {matrixStockSumDisplay} units across {variants.length} variant
+                  {variants.length === 1 ? "" : "s"}
+                </p>
+              ) : (
+                <Input
+                  id="parent-stock"
+                  value={parentStock}
+                  onChange={(e) => setParentStock(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="0"
+                />
+              )}
+            </div>
+          </div>
+          {catalogHint ? <FlashMessage variant="success">{catalogHint}</FlashMessage> : null}
+          <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 dark:bg-primary/10 sm:flex-row sm:flex-wrap sm:items-center">
+            <p className="min-w-0 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Catalog shortcuts:</span> create a size or
+              color here — it shows up in variant dropdowns on this page right away (no refresh).
+            </p>
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="shrink-0"
-                onClick={() =>
-                  setVariants((v) => {
-                    if (v.length === 0) {
-                      const seed = Number.parseInt(parentStock, 10);
-                      const stockSeed =
-                        !Number.isNaN(seed) && seed >= 0 ? String(seed) : "0";
-                      return [
-                        {
-                          sku: simpleSku.trim(),
-                          sizeId: "",
-                          colorId: "",
-                          price: simplePrice.trim() === "" ? "0" : simplePrice,
-                          compareAt: simpleCompareAt,
-                          stock: stockSeed,
-                        },
-                      ];
-                    }
-                    return [...v, emptyVariant()];
-                  })
-                }
+                variant="secondary"
+                onClick={() => setQuickSizeOpen(true)}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add variant
+                <Plus className="mr-1.5 h-4 w-4" />
+                New size
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setQuickColorOpen(true)}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                New color
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          </div>
             {variants.length === 0 ? (
-              <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:p-5">
+                <p className="mb-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Single SKU (no size/color matrix)
                 </p>
-                <div className="grid gap-3 md:grid-cols-12 md:items-end">
-                  <div className="md:col-span-5">
+                <div className="space-y-6">
+                  <div className="min-w-0 space-y-2">
                     <Label htmlFor="simple-sku">SKU</Label>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                       <Input
                         id="simple-sku"
                         value={simpleSku}
                         onChange={(e) => setSimpleSku(e.target.value)}
-                        className="min-w-0 flex-1 font-mono text-xs"
+                        className="min-w-0 w-full flex-1 font-mono text-xs"
                         placeholder={`${prefixFromStoreName(storeDisplayName)}-123-4567`}
                         autoComplete="off"
                       />
@@ -1261,35 +1436,39 @@ export function ProductEditPage() {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="shrink-0 sm:self-end"
+                        className="h-10 w-full shrink-0 sm:w-auto sm:min-w-[9.5rem]"
                         disabled={generatingSimpleSku}
                         onClick={() => void onGenerateSimpleSku()}
                       >
                         {generatingSimpleSku ? "…" : "Generate SKU"}
                       </Button>
                     </div>
-                    <p className="mt-1 text-[0.65rem] leading-snug text-muted-foreground">
+                    <p className="text-[0.65rem] leading-relaxed text-muted-foreground">
                       Saved as one variant with no size or color.{" "}
                       <span className="font-mono text-[0.7rem]">
                         {prefixFromStoreName(storeDisplayName)}-###-####
                       </span>
                     </p>
                   </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="simple-price">Price</Label>
-                    <Input
-                      id="simple-price"
-                      value={simplePrice}
-                      onChange={(e) => setSimplePrice(e.target.value)}
-                    />
-                  </div>
-                  <div className="md:col-span-4">
-                    <Label htmlFor="simple-compare">Compare-at</Label>
-                    <Input
-                      id="simple-compare"
-                      value={simpleCompareAt}
-                      onChange={(e) => setSimpleCompareAt(e.target.value)}
-                    />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor="simple-price">Price</Label>
+                      <Input
+                        id="simple-price"
+                        value={simplePrice}
+                        onChange={(e) => setSimplePrice(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor="simple-compare">Compare-at</Label>
+                      <Input
+                        id="simple-compare"
+                        value={simpleCompareAt}
+                        onChange={(e) => setSimpleCompareAt(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1319,9 +1498,9 @@ export function ProductEditPage() {
             {variants.map((v, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-border bg-background p-4 shadow-sm"
+                className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:p-5"
               >
-                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="mb-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Child variant {i + 1}
                   {name.trim() ? (
                     <span className="font-normal normal-case text-muted-foreground">
@@ -1330,153 +1509,246 @@ export function ProductEditPage() {
                     </span>
                   ) : null}
                 </p>
-                <div className="grid gap-3 md:grid-cols-12 md:items-end">
-                <div className="md:col-span-2">
-                  <Label>Size (optional)</Label>
-                  <select
-                    value={v.sizeId}
-                    onChange={(e) => {
-                      const next = [...variants];
-                      next[i] = { ...next[i], sizeId: e.target.value };
-                      setVariants(next);
-                    }}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                  >
-                    <option value="">— None —</option>
-                    {sizeChoices(sizes, v.sizeId).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.display_name}
-                        {!s.is_active ? " (inactive)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Color (optional)</Label>
-                  <select
-                    value={v.colorId}
-                    onChange={(e) => {
-                      const next = [...variants];
-                      next[i] = { ...next[i], colorId: e.target.value };
-                      setVariants(next);
-                    }}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                  >
-                    <option value="">— None —</option>
-                    {colorChoices(colors, v.colorId).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                        {!c.is_active ? " (inactive)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <Label>SKU</Label>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                    <Input
-                      value={v.sku}
-                      onChange={(e) => {
-                        const next = [...variants];
-                        next[i] = { ...next[i], sku: e.target.value };
-                        setVariants(next);
-                      }}
-                      className="min-w-0 flex-1 font-mono text-xs"
-                      placeholder={`${prefixFromStoreName(storeDisplayName)}-123-4567`}
-                      autoComplete="off"
-                    />
+
+                <div className="space-y-6">
+                  {/* Size & color: two columns on sm+, stacked on narrow screens */}
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`variant-${i}-size`}>Size (optional)</Label>
+                      <NativeSelect
+                        id={`variant-${i}-size`}
+                        value={v.sizeId}
+                        onChange={(e) => {
+                          const next = [...variants];
+                          next[i] = { ...next[i], sizeId: e.target.value };
+                          setVariants(next);
+                        }}
+                      >
+                        <option value="">— None —</option>
+                        {sizeChoices(sizes, v.sizeId).map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.display_name}
+                            {!s.is_active ? " (inactive)" : ""}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`variant-${i}-color`}>Color (optional)</Label>
+                      <NativeSelect
+                        id={`variant-${i}-color`}
+                        value={v.colorId}
+                        onChange={(e) => {
+                          const next = [...variants];
+                          next[i] = { ...next[i], colorId: e.target.value };
+                          setVariants(next);
+                        }}
+                      >
+                        <option value="">— None —</option>
+                        {colorChoices(colors, v.colorId).map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                            {!c.is_active ? " (inactive)" : ""}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border/60 pt-6">
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`variant-${i}-sku`}>SKU</Label>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                        <Input
+                          id={`variant-${i}-sku`}
+                          value={v.sku}
+                          onChange={(e) => {
+                            const next = [...variants];
+                            next[i] = { ...next[i], sku: e.target.value };
+                            setVariants(next);
+                          }}
+                          className="min-w-0 w-full flex-1 font-mono text-xs"
+                          placeholder={`${prefixFromStoreName(storeDisplayName)}-123-4567`}
+                          autoComplete="off"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-10 w-full shrink-0 sm:w-auto sm:min-w-[9.5rem]"
+                          disabled={generatingSkuIndex === i}
+                          onClick={() => void onGenerateSku(i)}
+                        >
+                          {generatingSkuIndex === i ? "…" : "Generate SKU"}
+                        </Button>
+                      </div>
+                      <p className="text-[0.65rem] leading-relaxed text-muted-foreground">
+                        Type any SKU, or generate{" "}
+                        <span className="font-mono text-[0.7rem]">
+                          {prefixFromStoreName(storeDisplayName)}-###-####
+                        </span>{" "}
+                        (store prefix from “{storeDisplayName}”, then numeric segments; unique in the
+                        database).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 border-t border-border/60 pt-6 sm:grid-cols-3 sm:gap-4">
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`variant-${i}-price`}>Price</Label>
+                      <Input
+                        id={`variant-${i}-price`}
+                        value={v.price}
+                        onChange={(e) => {
+                          const next = [...variants];
+                          next[i] = { ...next[i], price: e.target.value };
+                          setVariants(next);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`variant-${i}-compare`}>Compare-at</Label>
+                      <Input
+                        id={`variant-${i}-compare`}
+                        value={v.compareAt}
+                        onChange={(e) => {
+                          const next = [...variants];
+                          next[i] = { ...next[i], compareAt: e.target.value };
+                          setVariants(next);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`variant-${i}-stock`}>Stock</Label>
+                      <Input
+                        id={`variant-${i}-stock`}
+                        value={v.stock}
+                        inputMode="numeric"
+                        onChange={(e) => {
+                          const next = [...variants];
+                          next[i] = { ...next[i], stock: e.target.value };
+                          setVariants(next);
+                        }}
+                        className="w-full"
+                      />
+                      <p className="text-[0.65rem] text-muted-foreground">Units for this SKU</p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border/60 pt-4">
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
-                      className="shrink-0 sm:self-end"
-                      disabled={generatingSkuIndex === i}
-                      onClick={() => void onGenerateSku(i)}
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => setVariants((rows) => rows.filter((_, j) => j !== i))}
                     >
-                      {generatingSkuIndex === i ? "…" : "Generate SKU"}
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Remove this variant
                     </Button>
                   </div>
-                  <p className="mt-1 text-[0.65rem] leading-snug text-muted-foreground">
-                    Type any SKU, or generate{" "}
-                    <span className="font-mono text-[0.7rem]">
-                      {prefixFromStoreName(storeDisplayName)}-###-####
-                    </span>{" "}
-                    (store prefix from “{storeDisplayName}”, then numeric segments; unique in the
-                    database).
-                  </p>
                 </div>
-                <div className="md:col-span-2">
-                  <Label>Price</Label>
-                  <Input
-                    value={v.price}
-                    onChange={(e) => {
-                      const next = [...variants];
-                      next[i] = { ...next[i], price: e.target.value };
-                      setVariants(next);
-                    }}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Compare-at</Label>
-                  <Input
-                    value={v.compareAt}
-                    onChange={(e) => {
-                      const next = [...variants];
-                      next[i] = { ...next[i], compareAt: e.target.value };
-                      setVariants(next);
-                    }}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Stock</Label>
-                  <Input
-                    value={v.stock}
-                    inputMode="numeric"
-                    onChange={(e) => {
-                      const next = [...variants];
-                      next[i] = { ...next[i], stock: e.target.value };
-                      setVariants(next);
-                    }}
-                  />
-                  <p className="mt-1 text-[0.65rem] text-muted-foreground">Units for this SKU</p>
-                </div>
-                <div className="flex md:col-span-12">
+              </div>
+            ))}
+        </ProductFormSection>
+
+        <ProductFormSection
+          step={6}
+          title="Tags & social proof"
+          description="Tags help internal search; rating and review count display on the storefront when set."
+        >
+          <div className="space-y-2">
+            <Label htmlFor="tags">Tags (comma-separated)</Label>
+            <Input
+              id="tags"
+              value={tagsCsv}
+              onChange={(e) => setTagsCsv(e.target.value)}
+              placeholder="e.g. summer, cotton, bestseller"
+            />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Rating (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Click stars for half steps (0.5–5). Use Clear to remove the rating.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <StarRatingInput
+                  key={productId ?? "new"}
+                  count={5}
+                  value={rating}
+                  size={28}
+                  color="#94a3b8"
+                  activeColor="#eab308"
+                  isHalf
+                  edit
+                  onChange={(v: number) => setRating(v)}
+                />
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {rating > 0 ? `${rating.toFixed(1)} / 5.0` : "No rating"}
+                </span>
+                {rating > 0 ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-destructive"
-                    onClick={() => setVariants((rows) => rows.filter((_, j) => j !== i))}
+                    className="h-8 px-2 text-xs text-muted-foreground"
+                    onClick={() => setRating(0)}
                   >
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    Remove this variant
+                    Clear
                   </Button>
-                </div>
-                </div>
+                ) : null}
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reviews">Reviews count (optional)</Label>
+              <Input
+                id="reviews"
+                value={reviewsCount}
+                onChange={(e) => setReviewsCount(e.target.value)}
+                inputMode="numeric"
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </ProductFormSection>
+          </div>
+        </div>
 
-        <div className="flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground">
-            Save creates or updates the parent product and every variant row in one step.
+        <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-xl border border-border/80 bg-background/95 p-4 shadow-lg shadow-black/5 backdrop-blur-md dark:bg-card/95 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Save updates the parent product and all variant rows in one step.
           </p>
           <div className="flex flex-wrap gap-3">
-          <Button
-            type="submit"
-            disabled={saving || uploadingAssetKey !== null || generatingSimpleSku}
-          >
-            {saving ? "Saving…" : "Save product & variants"}
-          </Button>
-          {!isNew ? (
-            <Button type="button" variant="destructive" onClick={() => void onDelete()}>
-              Delete product
+            <Button
+              type="submit"
+              disabled={saving || uploadingAssetKey !== null || generatingSimpleSku}
+            >
+              {saving ? "Saving…" : "Save product & variants"}
             </Button>
-          ) : null}
+            {!isNew ? (
+              <Button type="button" variant="destructive" onClick={() => void onDelete()}>
+                Delete product
+              </Button>
+            ) : null}
           </div>
         </div>
       </form>
     </div>
+    <QuickAddSizeDialog
+      open={quickSizeOpen}
+      onOpenChange={setQuickSizeOpen}
+      existingSizes={sizes}
+      onCreated={mergeSizeIntoState}
+    />
+    <QuickAddColorDialog
+      open={quickColorOpen}
+      onOpenChange={setQuickColorOpen}
+      existingColors={colors}
+      onCreated={mergeColorIntoState}
+    />
+    </Fragment>
   );
 }

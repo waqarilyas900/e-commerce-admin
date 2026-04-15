@@ -3,57 +3,61 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Premium SaaS admin: neutral canvas + single primary; 8px spacing scale via Tailwind */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --background: 220 14% 97%;
+  --foreground: 222 47% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 262.1 83.3% 57.8%;
-  --primary-foreground: 210 20% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
+  --popover-foreground: 222 47% 11%;
+  /* Indigo primary — readable, Stripe-adjacent */
+  --primary: 226 71% 48%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 14% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 220 13% 94%;
+  --muted-foreground: 220 9% 42%;
+  --accent: 220 14% 92%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 262.1 83.3% 57.8%;
-  --radius: 0.5rem;
-  --sidebar: 240 4.8% 95.9%;
-  --sidebar-foreground: 240 5.9% 10%;
-  --sidebar-accent: 240 4.8% 92%;
-  --sidebar-border: 240 5.9% 88%;
+  --border: 220 13% 90%;
+  --input: 220 13% 90%;
+  --ring: 226 71% 48%;
+  --radius: 0.625rem;
+  --sidebar: 222 47% 98%;
+  --sidebar-foreground: 222 40% 18%;
+  --sidebar-accent: 220 14% 94%;
+  --sidebar-border: 220 13% 91%;
+  --shadow-card: 220 40% 4%;
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 5.5%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 5.5%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 263.4 70% 50.4%;
-  --primary-foreground: 210 20% 98%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 263.4 70% 50.4%;
-  --sidebar: 240 5.9% 10%;
-  --sidebar-foreground: 240 4.8% 95.9%;
-  --sidebar-accent: 240 3.7% 18%;
-  --sidebar-border: 240 3.7% 18%;
+  --background: 222 47% 6%;
+  --foreground: 210 40% 98%;
+  --card: 222 40% 9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 40% 9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 226 64% 58%;
+  --primary-foreground: 222 47% 6%;
+  --secondary: 217 33% 14%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 14%;
+  --muted-foreground: 215 20% 62%;
+  --accent: 217 33% 16%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 42%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 33% 16%;
+  --input: 217 33% 16%;
+  --ring: 226 64% 58%;
+  --sidebar: 222 44% 8%;
+  --sidebar-foreground: 210 30% 92%;
+  --sidebar-accent: 217 33% 14%;
+  --sidebar-border: 217 33% 16%;
+  --shadow-card: 222 47% 2%;
 }
 
 @theme inline {
@@ -96,14 +100,14 @@
     @apply bg-background text-foreground antialiased;
   }
   ::selection {
-    background: hsl(var(--primary) / 0.22);
+    background: hsl(var(--primary) / 0.2);
     color: hsl(var(--foreground));
   }
 }
 
 @keyframes pulse-skeleton {
   50% {
-    opacity: 0.5;
+    opacity: 0.55;
   }
 }
 

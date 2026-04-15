@@ -20,12 +20,12 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <header className={cn("mb-8 space-y-4", className)}>
+    <header className={cn("mb-10 space-y-5", className)}>
       {backLink ? (
         <Button
           variant="ghost"
           size="sm"
-          className="-ml-2.5 h-9 gap-2 text-muted-foreground hover:text-foreground"
+          className="-ml-2 h-9 gap-2 rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           asChild
         >
           <Link to={backLink.to}>
@@ -34,17 +34,19 @@ export function PageHeader({
           </Link>
         </Button>
       ) : null}
-      <div className="flex flex-col gap-4 border-b border-border/60 pb-8 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-tight">
+            {title}
+          </h1>
           {description ? (
-            <p className="max-w-3xl text-[0.9375rem] leading-relaxed text-muted-foreground">
+            <p className="max-w-2xl text-[0.9375rem] leading-relaxed text-muted-foreground">
               {description}
             </p>
           ) : null}
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
         ) : null}
       </div>
     </header>

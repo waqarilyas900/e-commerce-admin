@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   LineChart,
-  FolderCog,
   Settings,
-  Table2,
   Search,
   User,
   Package,
@@ -15,8 +13,10 @@ import {
   ClipboardList,
   MessageSquare,
   TicketPercent,
+  Users,
+  Heart,
 } from "lucide-react";
-import { mainNavItems } from "@/config/navigation";
+import { navGroups } from "@/config/navigation";
 import {
   CommandDialog,
   CommandEmpty,
@@ -30,15 +30,15 @@ import {
 const iconMap = {
   "/dashboard": LayoutDashboard,
   "/dashboard/analytics": LineChart,
-  "/dashboard/management": FolderCog,
   "/dashboard/products": Package,
   "/dashboard/orders": ClipboardList,
+  "/dashboard/customers": Users,
   "/dashboard/sizes": Ruler,
   "/dashboard/colors": Palette,
   "/dashboard/collections": Layers,
   "/dashboard/vouchers": TicketPercent,
   "/dashboard/reviews": MessageSquare,
-  "/dashboard/data": Table2,
+  "/dashboard/wishlist": Heart,
   "/dashboard/settings": Settings,
 } as const;
 
@@ -62,18 +62,18 @@ export function CommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="relative hidden h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-sm sm:flex md:w-72"
+        className="relative hidden h-10 w-full max-w-sm items-center gap-2 rounded-lg border border-input/80 bg-muted/30 px-3 text-left text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted/50 sm:flex md:w-72"
       >
-        <Search className="h-4 w-4 shrink-0 opacity-50" />
+        <Search className="h-4 w-4 shrink-0 opacity-60" />
         <span className="flex-1 truncate">Search pages…</span>
-        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-          Cmd+K
+        <kbd className="pointer-events-none hidden h-[22px] select-none items-center gap-1 rounded-md border border-border/80 bg-background px-2 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
+          ⌘K
         </kbd>
       </button>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-input bg-background sm:hidden"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-input/80 bg-background shadow-sm sm:hidden"
         aria-label="Open command palette"
       >
         <Search className="h-4 w-4 text-muted-foreground" />
@@ -83,24 +83,29 @@ export function CommandPalette() {
         <CommandInput placeholder="Jump to page or action…" />
         <CommandList>
           <CommandEmpty>No results.</CommandEmpty>
-          <CommandGroup heading="Navigation">
-            {mainNavItems.map((item) => {
-              const Icon =
-                iconMap[item.url as keyof typeof iconMap] ?? LayoutDashboard;
-              return (
-                <CommandItem
-                  key={item.url}
-                  onSelect={() => {
-                    navigate(item.url);
-                    setOpen(false);
-                  }}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.title}
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
+          {navGroups.map((group, gi) => (
+            <div key={group.id}>
+              {gi > 0 ? <CommandSeparator className="my-1" /> : null}
+              <CommandGroup heading={group.label}>
+                {group.items.map((item) => {
+                  const Icon =
+                    iconMap[item.url as keyof typeof iconMap] ?? LayoutDashboard;
+                  return (
+                    <CommandItem
+                      key={item.url}
+                      onSelect={() => {
+                        navigate(item.url);
+                        setOpen(false);
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.title}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </div>
+          ))}
           <CommandSeparator />
           <CommandGroup heading="Actions">
             <CommandItem
@@ -111,15 +116,6 @@ export function CommandPalette() {
             >
               <User className="h-4 w-4" />
               Profile
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                navigate("/dashboard/data");
-                setOpen(false);
-              }}
-            >
-              <Table2 className="h-4 w-4" />
-              Open data table
             </CommandItem>
           </CommandGroup>
         </CommandList>

@@ -6,6 +6,8 @@ export type DashboardStats = {
   collectionCount: number | null;
   openOrderCount: number | null;
   pendingReviewCount: number | null;
+  wishlistSaveCount: number | null;
+  restockQueuePendingCount: number | null;
 };
 
 const OPEN_STATUSES = [
@@ -28,6 +30,8 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
       collectionCount: null,
       openOrderCount: null,
       pendingReviewCount: null,
+      wishlistSaveCount: null,
+      restockQueuePendingCount: null,
     };
   }
 
@@ -37,6 +41,8 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     collections,
     openOrders,
     pendingReviews,
+    wishlistSaves,
+    restockQueuePending,
   ] = await Promise.all([
     supabase
       .from("products")
@@ -52,6 +58,11 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
       .from("reviews")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending"),
+    supabase.from("wishlist_items").select("id", { count: "exact", head: true }),
+    supabase
+      .from("restock_notification_queue")
+      .select("id", { count: "exact", head: true })
+      .is("processed_at", null),
   ]);
 
   if (activeProducts.error)
@@ -62,6 +73,10 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   if (openOrders.error) logStats("orders count", openOrders.error.message);
   if (pendingReviews.error)
     logStats("reviews count", pendingReviews.error.message);
+  if (wishlistSaves.error)
+    logStats("wishlist count", wishlistSaves.error.message);
+  if (restockQueuePending.error)
+    logStats("restock queue count", restockQueuePending.error.message);
 
   return {
     activeProductCount: activeProducts.count ?? null,
@@ -69,6 +84,10 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     collectionCount: collections.count ?? null,
     openOrderCount: openOrders.count ?? null,
     pendingReviewCount: pendingReviews.count ?? null,
+    wishlistSaveCount: wishlistSaves.error ? null : wishlistSaves.count ?? null,
+    restockQueuePendingCount: restockQueuePending.error
+      ? null
+      : restockQueuePending.count ?? null,
   };
 }
 
