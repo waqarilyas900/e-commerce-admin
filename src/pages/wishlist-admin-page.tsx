@@ -264,11 +264,24 @@ export function WishlistAdminPage() {
         </Card>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Successful restock emails remove the wishlist row on the storefront cron — counts reflect current
-        database state. Apply migration <code className="rounded bg-muted px-1">20260415200000_restock_queue_admin_select</code>{" "}
-        so the restock queue is visible to admins.
-      </p>
+      <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">How “Subscribed” relates to email</p>
+        <p className="mt-1">
+          <strong className="text-foreground">Subscribed (notify)</strong> means the customer opted into back-in-stock
+          alerts for that wishlist row. It does <em>not</em> mean Resend already sent an email. Delivery happens only
+          when a row appears in <strong className="text-foreground">Restock queue</strong> and the storefront cron runs
+          with <code className="rounded bg-muted px-1 text-xs">RESEND_API_KEY</code> +{" "}
+          <code className="rounded bg-muted px-1 text-xs">CRON_SECRET</code>. After a successful send, the wishlist row
+          is removed — so you may see “subscribed yes” with no email if nothing was queued yet or sending failed (see
+          cron JSON <code className="text-xs">failures</code> in server logs).
+        </p>
+        <p className="mt-2">
+          <strong className="text-foreground">Resend:</strong> until you verify a domain at resend.com/domains, the API
+          may only deliver to your own Resend account address — other customers will appear in{" "}
+          <code className="text-xs">failures</code> with a domain verification message. That is unrelated to “Subscribed
+          yes” in this table.
+        </p>
+      </div>
 
       <AdminListCard title="Views" description="Switch between browsing saved items, email queue health, and demand by product." headerRight={mainTabs}>
         {mainTab === "browse" ? (
@@ -292,7 +305,12 @@ export function WishlistAdminPage() {
                       <th className={adminTh()}>Product</th>
                       <th className={adminTh()}>Variant / options</th>
                       <th className={adminTh()}>Customer</th>
-                      <th className={adminTh()}>Notify</th>
+                      <th
+                        className={adminTh()}
+                        title="Opt-in for back-in-stock emails; not proof an email was sent"
+                      >
+                        Subscribed
+                      </th>
                       <th className={adminTh()}>Saved</th>
                       <th className={adminThEnd()}>Product id</th>
                     </tr>
@@ -331,8 +349,8 @@ export function WishlistAdminPage() {
                               {r.notify_on_restock ? "yes" : "no"}
                             </Badge>
                             {r.restock_notified_at ? (
-                              <span className="text-xs text-muted-foreground">
-                                Last sent {new Date(r.restock_notified_at).toLocaleDateString()}
+                              <span className="text-xs text-muted-foreground" title="Cleared when variant goes out of stock again">
+                                Last restock cycle {new Date(r.restock_notified_at).toLocaleDateString()}
                               </span>
                             ) : null}
                           </div>
