@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Plus, RefreshCw, TicketPercent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -34,20 +34,18 @@ function fmtDate(iso: string) {
 export function VouchersListPage() {
   const [rows, setRows] = useState<VoucherBatchStatsRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     if (!supabase) {
-      setError("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
+      toast.error("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       setRows(await fetchVoucherBatches());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load vouchers.");
+      toast.error(e instanceof Error ? e.message : "Failed to load vouchers.");
     } finally {
       setLoading(false);
     }
@@ -77,8 +75,6 @@ export function VouchersListPage() {
           </>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
       <AdminListCard
         icon={TicketPercent}

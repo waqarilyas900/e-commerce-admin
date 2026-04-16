@@ -4,7 +4,7 @@ import { Package, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import {
   AdminListCard,
@@ -18,31 +18,31 @@ import {
   adminTd,
   AdminRowEditLink,
 } from "@/components/dashboard/admin-list-shell";
-import { fetchProductsWithVariantCount } from "@/lib/supabase/catalog";
+import {
+  fetchProductsWithVariantCount,
+  type ProductCatalogTagRef,
+} from "@/lib/supabase/catalog";
 import type { ProductRow } from "@/lib/supabase/catalog-types";
 import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-type Row = ProductRow & { variant_count: number };
+type Row = ProductRow & { variant_count: number; catalog_tags: ProductCatalogTagRef[] };
 
 export function ProductsListPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   async function load() {
     if (!supabase) {
-      setError("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
+      toast.error("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       const data = await fetchProductsWithVariantCount();
       setRows(data as Row[]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load products.");
+      toast.error(e instanceof Error ? e.message : "Failed to load products.");
     } finally {
       setLoading(false);
     }
@@ -73,8 +73,6 @@ export function ProductsListPage() {
         }
       />
 
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-
       <AdminListCard
         title="Catalog"
         description="Manage listings and variant counts. Open a row to edit details, media, and SKUs."
@@ -96,12 +94,13 @@ export function ProductsListPage() {
           </EmptyState>
         ) : (
           <TableContainer>
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[880px] text-left text-sm">
               <thead>
                 <tr className={ADMIN_TABLE_HEAD}>
                   <th className={adminTh()}>Name</th>
                   <th className={adminTh()}>Slug</th>
                   <th className={adminTh()}>Status</th>
+                  <th className={adminTh()}>Tags</th>
                   <th className={adminTh()}>Variants</th>
                   <th className={adminThEnd()} />
                 </tr>
@@ -118,6 +117,38 @@ export function ProductsListPage() {
                       >
                         {p.status}
                       </Badge>
+                    </td>
+                    <td className={adminTd("max-w-[min(280px,32vw)] align-top")}>
+                      {p.catalog_tags.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {p.catalog_tags.map((t) => {
+                            const isLegacy = t.id.startsWith("legacy:");
+                            const pill = (
+                              <Badge
+                                variant="outline"
+                                className="max-w-[11rem] truncate font-normal"
+                                title={t.label}
+                              >
+                                {t.label}
+                              </Badge>
+                            );
+                            return isLegacy ? (
+                              <span key={t.id}>{pill}</span>
+                            ) : (
+                              <Link
+                                key={t.id}
+                                to={`/dashboard/tags/${t.id}`}
+                                className="inline-flex max-w-full shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {pill}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td className={adminTd("tabular-nums text-muted-foreground")}>{p.variant_count}</td>
                     <td className={cn(adminTd(), "text-right")}>

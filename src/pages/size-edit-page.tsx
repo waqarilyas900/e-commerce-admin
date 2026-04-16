@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,9 +52,6 @@ export function SizeEditPage() {
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [sizeType, setSizeType] = useState<"numeric" | "text">("text");
@@ -72,7 +69,7 @@ export function SizeEditPage() {
       const row = await fetchSizeById(sizeId);
       if (cancelled) return;
       if (!row) {
-        setError("Size not found.");
+        toast.error("Size not found.");
         setLoading(false);
         return;
       }
@@ -90,44 +87,42 @@ export function SizeEditPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase) {
-      setError("Database connection is not configured.");
+      toast.error("Database connection is not configured.");
       return;
     }
     const sort = Number.parseInt(sortOrder, 10);
     if (Number.isNaN(sort)) {
-      setError("Sort order must be a whole number.");
+      toast.error("Sort order must be a whole number.");
       return;
     }
     const trimmedDisplay = displayName.trim();
     const trimmedName =
       sizeType === "numeric" ? name.trim() : name.trim().toLowerCase();
     if (!trimmedName) {
-      setError("Name is required.");
+      toast.error("Name is required.");
       return;
     }
     if (!trimmedDisplay) {
-      setError("Display name is required.");
+      toast.error("Display name is required.");
       return;
     }
     if (sizeType === "numeric") {
       if (!NUMERIC_VALUE_PATTERN.test(trimmedName)) {
-        setError(
+        toast.error(
           "For numeric size type, name must be a number only (e.g. 8 or 8.5). Letters and other characters are not allowed.",
         );
         return;
       }
       if (!NUMERIC_VALUE_PATTERN.test(trimmedDisplay)) {
-        setError(
+        toast.error(
           "For numeric size type, display name must be a number only (e.g. 8 or 8.5).",
         );
         return;
       }
     } else {
       if (!TEXT_NAME_PATTERN.test(trimmedName)) {
-        setError(
+        toast.error(
           "Name may use lowercase letters, numbers, and underscores only (e.g. medium, 3xl, us_9).",
         );
         return;
@@ -144,10 +139,10 @@ export function SizeEditPage() {
     const result = await saveSize(isNew ? null : sizeId ?? null, payload);
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
-    setMessage("Saved.");
+    toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/sizes/${result.id}`, { replace: true });
     }
@@ -158,7 +153,7 @@ export function SizeEditPage() {
     if (!window.confirm("Delete this size? Variants using it will have size cleared.")) return;
     const err = await deleteSizeRow(sizeId);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
     navigate("/dashboard/sizes");
@@ -183,9 +178,6 @@ export function SizeEditPage() {
         title={isNew ? "New size" : "Edit size"}
         description="Internal name is stable for imports; display name is what shoppers see on variants."
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-      {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
 
       <form onSubmit={(e) => void onSubmit(e)} className="mx-auto w-full max-w-lg space-y-6">
         <Card>

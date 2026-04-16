@@ -3,8 +3,12 @@ import { supabase } from "@/lib/supabase/client";
 export type StoreSettingsRow = {
   id: number;
   store_name: string;
+  site_title: string;
+  site_description: string;
   support_email: string;
   default_currency: string;
+  footer_phone: string;
+  footer_hours_line: string;
   updated_at: string;
 };
 
@@ -17,7 +21,9 @@ export async function fetchStoreSettings(): Promise<StoreSettingsRow | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("store_settings")
-    .select("id, store_name, support_email, default_currency, updated_at")
+    .select(
+      "id, store_name, site_title, site_description, support_email, default_currency, footer_phone, footer_hours_line, updated_at",
+    )
     .eq("id", 1)
     .maybeSingle();
   if (error) {
@@ -29,8 +35,12 @@ export async function fetchStoreSettings(): Promise<StoreSettingsRow | null> {
 
 export async function updateStoreSettings(patch: {
   store_name?: string;
+  site_title?: string;
+  site_description?: string;
   support_email?: string;
   default_currency?: string;
+  footer_phone?: string;
+  footer_hours_line?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
   const { error } = await supabase

@@ -11,13 +11,16 @@ export function prefixFromStoreName(storeName: string): string {
   return (letters + "XXX").slice(0, 3).toUpperCase();
 }
 
-async function skuExistsInDatabase(sku: string): Promise<boolean> {
+async function skuExistsInDatabase(
+  sku: string,
+  productId?: string | null,
+): Promise<boolean> {
   if (!supabase) return true;
-  const { data, error } = await supabase
-    .from("product_variants")
-    .select("id")
-    .eq("sku", sku)
-    .maybeSingle();
+  let q = supabase.from("product_variants").select("id").eq("sku", sku);
+  if (productId) {
+    q = q.eq("product_id", productId);
+  }
+  const { data, error } = await q.maybeSingle();
   if (error) return true;
   return data != null;
 }
@@ -30,6 +33,7 @@ export async function generateUniqueSkuForProduct(
   productSlugHint: string,
   /** SKUs already used on this form (other rows) — must not collide */
   otherSkusOnForm: string[],
+  options?: { productId?: string | null },
 ): Promise<{ sku: string } | { error: string }> {
   if (!supabase) {
     return { error: "Database connection is not configured." };
@@ -43,6 +47,7 @@ export async function generateUniqueSkuForProduct(
   }
   const midBase = String(midNum).padStart(3, "0");
   const avoid = new Set(otherSkusOnForm.map((s) => s.trim()).filter(Boolean));
+  const pid = options?.productId?.trim() || null;
 
   for (let attempt = 0; attempt < 60; attempt++) {
     const mid =
@@ -52,7 +57,7 @@ export async function generateUniqueSkuForProduct(
     const tail = String(Math.floor(1000 + Math.random() * 9000));
     const sku = `${prefix}-${mid}-${tail}`;
     if (avoid.has(sku)) continue;
-    if (await skuExistsInDatabase(sku)) continue;
+    if (await skuExistsInDatabase(sku, pid)) continue;
     return { sku };
   }
 
@@ -60,7 +65,7 @@ export async function generateUniqueSkuForProduct(
     const tail = `${Date.now()}`.slice(-8);
     const sku = `${prefix}-${midBase}-${tail}`;
     if (avoid.has(sku)) continue;
-    if (await skuExistsInDatabase(sku)) continue;
+    if (await skuExistsInDatabase(sku, pid)) continue;
     return { sku };
   }
 

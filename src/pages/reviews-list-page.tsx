@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -36,25 +36,23 @@ const TABS: Array<{ value: ReviewModerationStatus | "all"; label: string }> = [
 export function ReviewsListPage() {
   const [rows, setRows] = useState<ReviewAdminRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReviewModerationStatus | "all">("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
     if (!supabase) {
-      setError(
+      toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
       );
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       const data = await fetchReviewsAdmin({ limit: 200, status: filter });
       setRows(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load reviews.");
+      toast.error(e instanceof Error ? e.message : "Failed to load reviews.");
     } finally {
       setLoading(false);
     }
@@ -69,7 +67,7 @@ export function ReviewsListPage() {
     const res = await updateReviewStatusAdmin(id, status);
     setBusyId(null);
     if (!res.ok) {
-      setError(res.error ?? "Update failed.");
+      toast.error(res.error ?? "Update failed.");
       return;
     }
     await load();
@@ -107,8 +105,6 @@ export function ReviewsListPage() {
           </Button>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
       <AdminListCard
         title="Moderation queue"

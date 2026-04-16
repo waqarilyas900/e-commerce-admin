@@ -4,7 +4,7 @@ import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -49,20 +49,18 @@ function SwatchPreview({ color }: { color: ColorRow }) {
 export function ColorsListPage() {
   const [rows, setRows] = useState<ColorRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     if (!supabase) {
-      setError("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
+      toast.error("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       setRows(await fetchColors());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load colors.");
+      toast.error(e instanceof Error ? e.message : "Failed to load colors.");
     } finally {
       setLoading(false);
     }
@@ -92,8 +90,6 @@ export function ColorsListPage() {
           </>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
       <AdminListCard
         title="All colors"

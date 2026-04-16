@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   ADMIN_LIST_CARD_CLASS,
   ADMIN_LIST_CARD_HEADER_CLASS,
@@ -23,8 +23,6 @@ export function ProfilePage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,10 +38,8 @@ export function ProfilePage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase) {
-      setError("Database connection is not configured.");
+      toast.error("Database connection is not configured.");
       return;
     }
     setSaving(true);
@@ -52,10 +48,10 @@ export function ProfilePage() {
     });
     setSaving(false);
     if (upErr) {
-      setError(upErr.message);
+      toast.error(upErr.message);
       return;
     }
-    setMessage("Profile updated.");
+    toast.success("Profile updated.");
   }
 
   if (loading) {
@@ -81,8 +77,6 @@ export function ProfilePage() {
         </CardHeader>
         <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
           <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
-            {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-            {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
             <div className="space-y-2">
               <Label htmlFor={emailId}>Email</Label>
               <Input id={emailId} type="email" value={email} readOnly className="bg-muted/50" />

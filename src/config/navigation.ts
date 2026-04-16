@@ -1,16 +1,20 @@
 import {
   LayoutDashboard,
+  LayoutGrid,
+  LayoutTemplate,
   LineChart,
   Settings,
   Package,
   Layers,
   Ruler,
   Palette,
+  Tag,
   TicketPercent,
   ClipboardList,
   MessageSquare,
   Heart,
   Users,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,6 +27,8 @@ export type NavItem = {
 export type NavGroup = {
   id: string;
   label: string;
+  /** When true, sidebar shows this group as an accordion with nested links */
+  collapsible?: boolean;
   items: NavItem[];
 };
 
@@ -36,13 +42,24 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "store-configuration",
+    label: "Store configuration",
+    collapsible: true,
+    items: [
+      { title: "Hero section", url: "/dashboard/hero", icon: LayoutTemplate },
+      { title: "Announcement", url: "/dashboard/announcement", icon: Megaphone },
+      { title: "Home sections", url: "/dashboard/home-sections", icon: LayoutGrid },
+    ],
+  },
+  {
     id: "catalog",
     label: "Catalog",
     items: [
-      { title: "Products", url: "/dashboard/products", icon: Package },
       { title: "Collections", url: "/dashboard/collections", icon: Layers },
+      { title: "Products", url: "/dashboard/products", icon: Package },
       { title: "Sizes", url: "/dashboard/sizes", icon: Ruler },
       { title: "Colors", url: "/dashboard/colors", icon: Palette },
+      { title: "Tags", url: "/dashboard/tags", icon: Tag },
     ],
   },
   {

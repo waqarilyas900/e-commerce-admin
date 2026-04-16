@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -34,18 +34,16 @@ export function CustomersListPage() {
   const [rows, setRows] = useState<PublicUserRow[]>([]);
   const [orderCounts, setOrderCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   async function load() {
     if (!supabase) {
-      setError(
+      toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
       );
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       const data = await fetchCustomersAdmin(400);
@@ -53,7 +51,7 @@ export function CustomersListPage() {
       const ids = data.map((r) => r.id);
       setOrderCounts(await fetchOrderCountByUserIds(ids));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load customers.");
+      toast.error(e instanceof Error ? e.message : "Failed to load customers.");
     } finally {
       setLoading(false);
     }
@@ -91,8 +89,6 @@ export function CustomersListPage() {
           </Button>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
       <AdminListCard
         title="Directory"

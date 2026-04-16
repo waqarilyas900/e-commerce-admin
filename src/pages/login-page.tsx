@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { toast } from "sonner";
 
 export function LoginPage() {
   const { signIn, isLoading: sessionLoading } = useAuth();
@@ -25,12 +26,10 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     setIsSubmitting(true);
     try {
       await signIn(email, password);
@@ -38,7 +37,7 @@ export function LoginPage() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Sign in failed. Try again.";
-      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -59,14 +58,6 @@ export function LoginPage() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-5 pt-2">
-          {error && (
-            <div
-              role="alert"
-              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
-            >
-              {error}
-            </div>
-          )}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
               Work email

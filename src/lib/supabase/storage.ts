@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase/client";
 export const ECOMMERCE_STORAGE_BUCKET = "e-commerce-store";
 
 const COLLECTION_HERO_PREFIX = "collections/hero";
+const HOME_HERO_PREFIX = "marketing/home-hero";
 const PRODUCT_MEDIA_PREFIX = "products/media";
 const COLOR_SWATCH_PREFIX = "colors/swatches";
 
@@ -65,6 +66,41 @@ export async function uploadCollectionHeroImage(
 
   const ext = extFromFileName(file.name) ?? extFromMime(file.type);
   const path = `${COLLECTION_HERO_PREFIX}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: upErr } = await supabase.storage
+    .from(ECOMMERCE_STORAGE_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (upErr) {
+    return { error: upErr.message };
+  }
+
+  const { data } = supabase.storage.from(ECOMMERCE_STORAGE_BUCKET).getPublicUrl(path);
+  return { publicUrl: data.publicUrl };
+}
+
+/**
+ * Upload a homepage hero slide image; returns the public URL for `home_hero_slides.image_url`.
+ */
+export async function uploadHomeHeroImage(
+  file: File,
+): Promise<{ publicUrl: string } | { error: string }> {
+  if (!supabase) {
+    return { error: "Database connection is not configured." };
+  }
+  if (!ALLOWED_IMAGE.has(file.type)) {
+    return { error: "Use a JPEG, PNG, WebP, GIF, or SVG image." };
+  }
+  if (file.size > IMAGE_MAX_BYTES) {
+    return { error: "Image must be 5 MB or smaller." };
+  }
+
+  const ext = extFromFileName(file.name) ?? extFromMime(file.type);
+  const path = `${HOME_HERO_PREFIX}/${crypto.randomUUID()}.${ext}`;
 
   const { error: upErr } = await supabase.storage
     .from(ECOMMERCE_STORAGE_BUCKET)

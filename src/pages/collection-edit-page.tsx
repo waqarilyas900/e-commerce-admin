@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,12 +16,16 @@ import {
 import {
   deleteCollectionRow,
   fetchCollectionById,
+  fetchTags,
   saveCollection,
   type CollectionWritePayload,
 } from "@/lib/supabase/catalog";
+import type { TagRow } from "@/lib/supabase/catalog-types";
 import { slugFromLabel } from "@/lib/slug";
 import { uploadCollectionHeroImage } from "@/lib/supabase/storage";
 import { supabase } from "@/lib/supabase/client";
+import { TagMultiSelect } from "@/components/dashboard/tag-multi-select";
+import { CollectionTypeDb } from "@/lib/catalog/collection-type";
 
 export function CollectionEditPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
@@ -30,14 +34,20 @@ export function CollectionEditPage() {
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [heroImage, setHeroImage] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [sortOrder, setSortOrder] = useState("0");
+  const [collectionType, setCollectionType] = useState<CollectionTypeDb>(CollectionTypeDb.Manual);
+  const [catalogTags, setCatalogTags] = useState<TagRow[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    if (!supabase) return;
+    void fetchTags().then(setCatalogTags);
+  }, []);
 
   useEffect(() => {
     if (isNew || !collectionId || !supabase) {
@@ -50,7 +60,7 @@ export function CollectionEditPage() {
       const row = await fetchCollectionById(collectionId);
       if (cancelled) return;
       if (!row) {
-        setError("Collection not found.");
+        toast.error("Collection not found.");
         setLoading(false);
         return;
       }
@@ -58,6 +68,8 @@ export function CollectionEditPage() {
       setDescription(row.description);
       setHeroImage(row.hero_image);
       setSortOrder(String(row.sort_order));
+      setCollectionType(row.collection_type ?? CollectionTypeDb.Manual);
+      setSelectedTagIds(new Set(row.tag_ids));
       setLoading(false);
     })();
     return () => {
@@ -67,22 +79,20 @@ export function CollectionEditPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase) {
-      setError("Database connection is not configured.");
+      toast.error("Database connection is not configured.");
       return;
     }
 
     const sort = Number.parseInt(sortOrder, 10);
     if (Number.isNaN(sort)) {
-      setError("Sort order must be a whole number.");
+      toast.error("Sort order must be a whole number.");
       return;
     }
 
     const slug = slugFromLabel(name);
     if (!slug) {
-      setError(
+      toast.error(
         "Use a name with letters or numbers so we can build a URL (e.g. “Summer Tees”).",
       );
       return;
@@ -94,16 +104,19 @@ export function CollectionEditPage() {
       description: description.trim(),
       hero_image: heroImage.trim(),
       sort_order: sort,
+      collection_type: collectionType,
+      tag_ids:
+        collectionType === CollectionTypeDb.TagBased ? Array.from(selectedTagIds) : [],
     };
 
     setSaving(true);
     const result = await saveCollection(isNew ? null : collectionId ?? null, payload);
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
-    setMessage("Saved.");
+    toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/collections/${result.id}`, { replace: true });
     }
@@ -120,7 +133,7 @@ export function CollectionEditPage() {
     }
     const err = await deleteCollectionRow(collectionId);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
     navigate("/dashboard/collections");
@@ -130,17 +143,15 @@ export function CollectionEditPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setError(null);
-    setMessage(null);
     setUploadingImage(true);
     const res = await uploadCollectionHeroImage(file);
     setUploadingImage(false);
     if ("error" in res) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
     setHeroImage(res.publicUrl);
-    setMessage("Image uploaded — save the collection to keep changes.");
+    toast.success("Image uploaded — save the collection to keep changes.");
   }
 
   if (!supabase) {
@@ -162,9 +173,6 @@ export function CollectionEditPage() {
         title={isNew ? "New collection" : "Edit collection"}
         description="Group products for collection pages on the site — optional hero image and sort order."
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-      {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
 
       <form onSubmit={(e) => void onSubmit(e)} className="mx-auto w-full max-w-4xl space-y-6">
         <Card>
@@ -203,6 +211,62 @@ export function CollectionEditPage() {
                 inputMode="numeric"
               />
             </div>
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/15 p-4">
+              <p className="text-sm font-medium">How products are included</p>
+              <label className="flex cursor-pointer items-start gap-3 text-sm">
+                <input
+                  type="radio"
+                  name="collection-type"
+                  className="mt-1 h-4 w-4 border-input text-primary"
+                  checked={collectionType === CollectionTypeDb.Manual}
+                  onChange={() => setCollectionType(CollectionTypeDb.Manual)}
+                />
+                <span>
+                  <span className="font-medium">Manual</span>
+                  <span className="block text-muted-foreground">
+                    Choose collections per product on each product&apos;s edit screen. Products appear
+                    here when linked.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 text-sm">
+                <input
+                  type="radio"
+                  name="collection-type"
+                  className="mt-1 h-4 w-4 border-input text-primary"
+                  checked={collectionType === CollectionTypeDb.TagBased}
+                  onChange={() => setCollectionType(CollectionTypeDb.TagBased)}
+                />
+                <span>
+                  <span className="font-medium">Tag-based</span>
+                  <span className="block text-muted-foreground">
+                    Products are included automatically when they match any of the tags you select
+                    below (OR logic).
+                  </span>
+                </span>
+              </label>
+            </div>
+            {collectionType === CollectionTypeDb.TagBased ? (
+              <div className="space-y-2">
+                <Label htmlFor="c-tags">Tags for this collection</Label>
+                <TagMultiSelect
+                  inputId="c-tags"
+                  tags={catalogTags}
+                  value={selectedTagIds}
+                  onChange={setSelectedTagIds}
+                  aria-label="Collection tags"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Products will be automatically included based on selected tags. Manual product
+                  links for this collection are cleared when you save as tag-based.
+                </p>
+              </div>
+            ) : (
+              <p className="rounded-md border border-dashed border-border bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+                Assign products from each product&apos;s <strong>Collections</strong> checkboxes.
+                Tag-based collections are hidden there.
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="c-desc">Description</Label>
               <textarea

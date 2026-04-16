@@ -4,7 +4,7 @@ import { Heart, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListEmpty,
@@ -65,7 +65,6 @@ export function WishlistAdminPage() {
   const pageSize = 50;
   const [metaLoading, setMetaLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const loadMeta = useCallback(async () => {
     if (!supabase) return;
@@ -92,20 +91,19 @@ export function WishlistAdminPage() {
 
   useEffect(() => {
     if (!supabase) {
-      setError(
+      toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
       );
       setMetaLoading(false);
       setTableLoading(false);
       return;
     }
-    setError(null);
     void (async () => {
       setMetaLoading(true);
       try {
         await loadMeta();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load wishlist overview.");
+        toast.error(e instanceof Error ? e.message : "Failed to load wishlist overview.");
       } finally {
         setMetaLoading(false);
       }
@@ -119,7 +117,7 @@ export function WishlistAdminPage() {
       try {
         await loadBrowse();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load wishlist rows.");
+        toast.error(e instanceof Error ? e.message : "Failed to load wishlist rows.");
       } finally {
         setTableLoading(false);
       }
@@ -128,12 +126,11 @@ export function WishlistAdminPage() {
 
   async function loadAll() {
     if (!supabase) {
-      setError(
+      toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
       );
       return;
     }
-    setError(null);
     await Promise.all([
       (async () => {
         setMetaLoading(true);
@@ -218,8 +215,6 @@ export function WishlistAdminPage() {
           </Button>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="border-border/70 shadow-sm">

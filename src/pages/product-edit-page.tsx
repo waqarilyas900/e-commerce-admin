@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, Layers, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StarRatingInput } from "@/components/dashboard/star-rating-input";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { ProductDescriptionEditor } from "@/components/dashboard/product-description-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ import {
   fetchProductWithVariants,
   fetchSizes,
   fetchStoreNameForSku,
+  fetchTags,
   saveProductAndVariants,
   deleteProduct,
   type ProductSavePayload,
@@ -45,9 +46,12 @@ import type {
   ColorRow,
   ProductAssetRow,
   SizeRow,
+  TagRow,
 } from "@/lib/supabase/catalog-types";
 import { slugFromLabel } from "@/lib/slug";
 import { uploadProductMedia } from "@/lib/supabase/storage";
+import { TagMultiSelect } from "@/components/dashboard/tag-multi-select";
+import { collectionIsTagBased } from "@/lib/catalog/collection-type";
 import { supabase } from "@/lib/supabase/client";
 import {
   collectOptionKeysFromVariants,
@@ -88,6 +92,8 @@ function keysFromVariantForms(vs: VariantForm[]): string[] {
 }
 
 type VariantForm = {
+  /** `product_variants.id` when this row was loaded from the database. */
+  id?: string;
   sku: string;
   sizeId: string;
   colorId: string;
@@ -239,11 +245,8 @@ export function ProductEditPage() {
   const [uploadingAssetKey, setUploadingAssetKey] = useState<string | null>(null);
   const [generatingSkuIndex, setGeneratingSkuIndex] = useState<number | null>(null);
   const [storeDisplayName, setStoreDisplayName] = useState("Store");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [quickSizeOpen, setQuickSizeOpen] = useState(false);
   const [quickColorOpen, setQuickColorOpen] = useState(false);
-  const [catalogHint, setCatalogHint] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [shortDescription, setShortDescription] = useState("");
@@ -253,11 +256,14 @@ export function ProductEditPage() {
     () => new Set(),
   );
   const [assets, setAssets] = useState<AssetForm[]>([newAssetRow()]);
-  const [tagsCsv, setTagsCsv] = useState("");
+  const [catalogTags, setCatalogTags] = useState<TagRow[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(() => new Set());
   const [rating, setRating] = useState(0);
   const [reviewsCount, setReviewsCount] = useState("");
   /** Total units for simple (single-SKU) products; matrix totals are the sum of per-variant stock. */
   const [parentStock, setParentStock] = useState("0");
+  /** When the product has a single variant row (no size/color), we keep its UUID for in-place saves. */
+  const [simpleVariantId, setSimpleVariantId] = useState<string | null>(null);
   /** Matrix rows (optional size and/or color per SKU). Empty = "simple" product with one SKU below. */
   const [variants, setVariants] = useState<VariantForm[]>([]);
   /** When there are no matrix rows, this single line is saved as one variant (no size/color). */
@@ -275,14 +281,9 @@ export function ProductEditPage() {
     void fetchCollections().then(setCollections);
     void fetchSizes().then(setSizes);
     void fetchColors().then(setColors);
+    void fetchTags().then(setCatalogTags);
     void fetchStoreNameForSku().then(setStoreDisplayName);
   }, []);
-
-  useEffect(() => {
-    if (!catalogHint) return;
-    const t = window.setTimeout(() => setCatalogHint(null), 4500);
-    return () => window.clearTimeout(t);
-  }, [catalogHint]);
 
   function mergeSizeIntoState(row: SizeRow) {
     setSizes((prev) =>
@@ -291,7 +292,7 @@ export function ProductEditPage() {
           a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name),
       ),
     );
-    setCatalogHint(`Size “${row.display_name}” saved — it’s in the size dropdown now.`);
+    toast.success(`Size “${row.display_name}” saved — it’s in the size dropdown now.`);
   }
 
   function mergeColorIntoState(row: ColorRow) {
@@ -300,7 +301,7 @@ export function ProductEditPage() {
         (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
       ),
     );
-    setCatalogHint(`Color “${row.name}” saved — it’s in the color dropdown now.`);
+    toast.success(`Color “${row.name}” saved — it’s in the color dropdown now.`);
   }
 
   useEffect(() => {
@@ -314,7 +315,7 @@ export function ProductEditPage() {
       const res = await fetchProductWithVariants(productId);
       if (cancelled) return;
       if (!res) {
-        setError("Product not found.");
+        toast.error("Product not found.");
         setLoading(false);
         return;
       }
@@ -323,14 +324,14 @@ export function ProductEditPage() {
       setSizes(sizeList);
       setColors(colorList);
 
-      const { product, variants: vv, collectionIds, assets: dbAssets } = res;
+      const { product, variants: vv, collectionIds, tagIds, assets: dbAssets } = res;
       setName(product.name);
       setShortDescription(product.short_description);
       setDescription(product.description);
       setStatus(product.status);
       setSelectedCollectionIds(new Set(collectionIds));
       setAssets(buildAssetsFromLoad(product.images, dbAssets));
-      setTagsCsv((product.tags ?? []).join(", "));
+      setSelectedTagIds(new Set(tagIds));
       setRating(product.rating != null ? Number(product.rating) : 0);
       setReviewsCount(product.reviews_count != null ? String(product.reviews_count) : "");
       const sumVariantStock = vv.reduce((s, v) => s + (v.quantity_on_hand ?? 0), 0);
@@ -338,6 +339,7 @@ export function ProductEditPage() {
         vv.length === 1 && !vv[0].size_id && !vv[0].color_id;
       if (oneBare) {
         const v0 = vv[0];
+        setSimpleVariantId(v0.id);
         setSimpleSku(v0.sku);
         setSimplePrice(String(v0.price));
         setSimpleCompareAt(
@@ -353,6 +355,7 @@ export function ProductEditPage() {
         setVariants([]);
         setVariantOptionSchema([]);
       } else if (vv.length > 0) {
+        setSimpleVariantId(null);
         setSimpleSku("");
         setSimplePrice("0");
         setSimpleCompareAt("");
@@ -365,6 +368,7 @@ export function ProductEditPage() {
         );
         setVariants(
           vv.map((v) => ({
+            id: v.id,
             sku: v.sku,
             sizeId: v.size_id ?? inferSizeId(sizeList, v.option_values ?? {}),
             colorId:
@@ -384,6 +388,7 @@ export function ProductEditPage() {
           mergeVariantKeysIntoSchema(parsedSchema, keysFromDb),
         );
       } else {
+        setSimpleVariantId(null);
         setSimpleSku("");
         setSimplePrice("0");
         setSimpleCompareAt("");
@@ -438,10 +443,9 @@ export function ProductEditPage() {
 
   async function onRefreshVariantKeysFromDb() {
     if (!productId || isNew || !supabase) return;
-    setError(null);
     const res = await fetchProductWithVariants(productId);
     if (!res) {
-      setError("Could not reload product.");
+      toast.error("Could not reload product.");
       return;
     }
     const keysFromDb = collectOptionKeysFromVariants(
@@ -450,19 +454,18 @@ export function ProductEditPage() {
     setVariantOptionSchema((prev) =>
       mergeVariantKeysIntoSchema(prev, keysFromDb),
     );
-    setMessage("Variant keys refreshed from the database. Save to persist layout changes.");
+    toast.success("Variant keys refreshed from the database. Save to persist layout changes.");
   }
 
   async function onAssetFile(key: string, e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setError(null);
     setUploadingAssetKey(key);
     const res = await uploadProductMedia(file);
     setUploadingAssetKey(null);
     if ("error" in res) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
     setAssets((prev) =>
@@ -470,11 +473,10 @@ export function ProductEditPage() {
         row.key === key ? { ...row, url: res.publicUrl, kind: res.kind } : row,
       ),
     );
-    setMessage("File uploaded — save the product to persist.");
+    toast.success("File uploaded — save the product to persist.");
   }
 
   async function onGenerateSimpleSku() {
-    setError(null);
     const others = [
       ...variants.map((v) => v.sku.trim()).filter(Boolean),
       ...(simpleSku.trim() ? [simpleSku.trim()] : []),
@@ -484,17 +486,17 @@ export function ProductEditPage() {
       storeDisplayName,
       slugFromLabel(name) || "product",
       others,
+      { productId: isNew ? null : productId ?? null },
     );
     setGeneratingSimpleSku(false);
     if ("error" in res) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
     setSimpleSku(res.sku);
   }
 
   async function onGenerateSku(variantIndex: number) {
-    setError(null);
     const others = variants
       .filter((_, j) => j !== variantIndex)
       .map((v) => v.sku.trim())
@@ -504,10 +506,11 @@ export function ProductEditPage() {
       storeDisplayName,
       slugFromLabel(name) || "product",
       others,
+      { productId: isNew ? null : productId ?? null },
     );
     setGeneratingSkuIndex(null);
     if ("error" in res) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
     setVariants((prev) => {
@@ -530,21 +533,14 @@ export function ProductEditPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase) {
-      setError("Database connection is not configured.");
+      toast.error("Database connection is not configured.");
       return;
     }
 
-    const tags = tagsCsv
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
     const slug = slugFromLabel(name);
     if (!slug) {
-      setError(
+      toast.error(
         "Use a name with letters or numbers so we can build a URL (e.g. “Graphic Tee”).",
       );
       return;
@@ -562,7 +558,7 @@ export function ProductEditPage() {
     const parentTotal = Number.parseInt(parentStock, 10);
     if (variants.length === 0) {
       if (Number.isNaN(parentTotal) || parentTotal < 0) {
-        setError("Total inventory must be a whole number zero or greater.");
+        toast.error("Total inventory must be a whole number zero or greater.");
         return;
       }
     }
@@ -572,12 +568,13 @@ export function ProductEditPage() {
     if (variants.length === 0) {
       const price = Number.parseFloat(simplePrice);
       if (!simpleSku.trim() || Number.isNaN(price)) {
-        setError(
+        toast.error(
           "Add a SKU and price for this product, or use “Add variant” for size/color rows.",
         );
         return;
       }
       vpayload.push({
+        id: simpleVariantId ?? undefined,
         sku: simpleSku.trim(),
         option_values: {},
         size_id: null,
@@ -595,7 +592,7 @@ export function ProductEditPage() {
         const v = variants[i]!;
         const comboSig = `${v.sizeId || ""}\t${v.colorId || ""}`;
         if (seenCombo.has(comboSig)) {
-          setError(
+          toast.error(
             `Duplicate variant: rows ${seenCombo.get(comboSig)! + 1} and ${i + 1} use the same size and color. Use one row per combination or change size/color.`,
           );
           return;
@@ -607,17 +604,17 @@ export function ProductEditPage() {
         const price = Number.parseFloat(v.price);
         const rowStock = Number.parseInt(v.stock, 10);
         if (!v.sku.trim() || Number.isNaN(price)) {
-          setError("Each variant needs SKU and valid price.");
+          toast.error("Each variant needs SKU and valid price.");
           return;
         }
         if (!v.sizeId && !v.colorId) {
-          setError(
+          toast.error(
             "Each variant needs at least a size or a color (so buyers can tell SKUs apart).",
           );
           return;
         }
         if (Number.isNaN(rowStock) || rowStock < 0) {
-          setError("Each variant needs a valid stock quantity (0 or greater).");
+          toast.error("Each variant needs a valid stock quantity (0 or greater).");
           return;
         }
         const option_values: Record<string, string> = {};
@@ -625,7 +622,7 @@ export function ProductEditPage() {
         if (v.sizeId) {
           const sizeLabel = sizes.find((s) => s.id === v.sizeId)?.display_name;
           if (!sizeLabel) {
-            setError("Invalid size on a variant — refresh and pick a size again.");
+            toast.error("Invalid size on a variant — refresh and pick a size again.");
             return;
           }
           option_values.size = sizeLabel;
@@ -635,7 +632,7 @@ export function ProductEditPage() {
         if (v.colorId) {
           const colorRow = colors.find((c) => c.id === v.colorId);
           if (!colorRow) {
-            setError("Invalid color on a variant — refresh and pick a color again.");
+            toast.error("Invalid color on a variant — refresh and pick a color again.");
             return;
           }
           option_values.color = colorRow.name;
@@ -643,6 +640,7 @@ export function ProductEditPage() {
         }
 
         vpayload.push({
+          id: v.id,
           sku: v.sku.trim(),
           option_values,
           size_id: sizeId,
@@ -672,7 +670,7 @@ export function ProductEditPage() {
     const seenKeys = new Set<string>();
     for (const r of schemaRows) {
       if (seenKeys.has(r.key)) {
-        setError(
+        toast.error(
           `Duplicate dimension key "${r.key}" in Storefront variant display — use each key once.`,
         );
         return;
@@ -687,18 +685,31 @@ export function ProductEditPage() {
 
     const payload: ProductSavePayload = {
       collection_ids: Array.from(selectedCollectionIds),
+      tag_ids: Array.from(selectedTagIds),
       slug,
       name: name.trim(),
       short_description: shortDescription.trim(),
       description: description.trim(),
       status,
       assets: assetPayload,
-      tags,
       rating: rating > 0 ? rating : null,
       reviews_count: reviewsCount.trim() === "" ? null : Number.parseInt(reviewsCount, 10),
       stock_total: variants.length > 0 ? matrixStockTotal : parentTotal,
       option_definitions: schemaForSave,
     };
+
+    const skuTrimmed = vpayload.map((v) => v.sku.trim()).filter(Boolean);
+    const skuSeen = new Set<string>();
+    for (const s of skuTrimmed) {
+      const key = s.toLowerCase();
+      if (skuSeen.has(key)) {
+        toast.error(
+          `Duplicate SKU in this product: "${s}". Each variant must have a different SKU for this listing.`,
+        );
+        return;
+      }
+      skuSeen.add(key);
+    }
 
     setSaving(true);
     const result = await saveProductAndVariants(
@@ -708,10 +719,10 @@ export function ProductEditPage() {
     );
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
-    setMessage("Saved.");
+    toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/products/${result.id}`, { replace: true });
     }
@@ -722,7 +733,7 @@ export function ProductEditPage() {
     if (!window.confirm("Delete this product and all variants?")) return;
     const err = await deleteProduct(productId);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
     navigate("/dashboard/products");
@@ -823,8 +834,6 @@ export function ProductEditPage() {
         </div>
       ) : null}
 
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-      {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
 
       <form onSubmit={(e) => void onSubmit(e)} className="w-full max-w-none space-y-8">
         <nav
@@ -910,16 +919,21 @@ export function ProductEditPage() {
             <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">Collections</p>
               <p className="text-xs text-muted-foreground">
-                Leave none selected to show this product only under &quot;All products&quot;. You can
-                select multiple.
+                Leave none selected to show this product only under &quot;All products&quot;. Tag-based
+                collections are filled automatically from product tags — assign those in the Tags
+                section below.
               </p>
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-input/80 bg-muted/10 p-4 dark:bg-muted/5">
-                {collections.length === 0 ? (
+                {collections.filter((c) => !collectionIsTagBased(c.collection_type)).length ===
+                0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No collections yet — create some under Collections.
+                    No manual collections yet — create some under Collections (or use tag-based
+                    collections with tags below).
                   </p>
                 ) : (
-                  collections.map((c) => (
+                  collections
+                    .filter((c) => !collectionIsTagBased(c.collection_type))
+                    .map((c) => (
                     <label
                       key={c.id}
                       className="flex cursor-pointer items-center gap-3 rounded-md py-1 text-sm transition-colors hover:bg-muted/40"
@@ -1335,16 +1349,16 @@ export function ProductEditPage() {
                     const seed = Number.parseInt(parentStock, 10);
                     const stockSeed =
                       !Number.isNaN(seed) && seed >= 0 ? String(seed) : "0";
-                    return [
-                      {
-                        sku: simpleSku.trim(),
-                        sizeId: "",
-                        colorId: "",
-                        price: simplePrice.trim() === "" ? "0" : simplePrice,
-                        compareAt: simpleCompareAt,
-                        stock: stockSeed,
-                      },
-                    ];
+                    const row: VariantForm = {
+                      id: simpleVariantId ?? undefined,
+                      sku: simpleSku.trim(),
+                      sizeId: "",
+                      colorId: "",
+                      price: simplePrice.trim() === "" ? "0" : simplePrice,
+                      compareAt: simpleCompareAt,
+                      stock: stockSeed,
+                    };
+                    return [row];
                   }
                   return [...v, emptyVariant()];
                 })
@@ -1388,7 +1402,6 @@ export function ProductEditPage() {
               )}
             </div>
           </div>
-          {catalogHint ? <FlashMessage variant="success">{catalogHint}</FlashMessage> : null}
           <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 dark:bg-primary/10 sm:flex-row sm:flex-wrap sm:items-center">
             <p className="min-w-0 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Catalog shortcuts:</span> create a size or
@@ -1657,16 +1670,20 @@ export function ProductEditPage() {
         <ProductFormSection
           step={6}
           title="Tags & social proof"
-          description="Tags help internal search; rating and review count display on the storefront when set."
+          description="Tags power search and tag-based collections. Rating and review count display on the storefront when set."
         >
           <div className="space-y-2">
-            <Label htmlFor="tags">Tags (comma-separated)</Label>
-            <Input
-              id="tags"
-              value={tagsCsv}
-              onChange={(e) => setTagsCsv(e.target.value)}
-              placeholder="e.g. summer, cotton, bestseller"
+            <Label htmlFor="product-tags-multiselect">Tags</Label>
+            <TagMultiSelect
+              inputId="product-tags-multiselect"
+              tags={catalogTags}
+              value={selectedTagIds}
+              onChange={setSelectedTagIds}
+              aria-label="Product tags"
             />
+            <p className="text-xs text-muted-foreground">
+              Create and edit tag definitions under Catalog → Tags.
+            </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">

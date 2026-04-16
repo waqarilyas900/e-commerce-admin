@@ -16,7 +16,7 @@ import {
   fetchStoreSettings,
   updateStoreSettings,
 } from "@/lib/supabase/store-settings";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
 const STORAGE_KEY = "ecom-admin-panel-settings-v1";
@@ -70,11 +70,14 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   const [storeName, setStoreName] = useState("");
+  const [siteTitle, setSiteTitle] = useState("");
+  const [siteDescription, setSiteDescription] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
+  const [footerPhone, setFooterPhone] = useState("");
+  const [footerHoursLine, setFooterHoursLine] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("PKR");
   const [storeLoading, setStoreLoading] = useState(true);
   const [storeSaved, setStoreSaved] = useState(false);
-  const [storeErr, setStoreErr] = useState<string | null>(null);
 
   useEffect(() => {
     const s = load();
@@ -91,7 +94,11 @@ export function SettingsPage() {
     void fetchStoreSettings().then((row) => {
       if (row) {
         setStoreName(row.store_name);
+        setSiteTitle(row.site_title ?? "");
+        setSiteDescription(row.site_description ?? "");
         setSupportEmail(row.support_email);
+        setFooterPhone(row.footer_phone ?? "");
+        setFooterHoursLine(row.footer_hours_line ?? "");
         setDefaultCurrency(row.default_currency || "PKR");
       }
       setStoreLoading(false);
@@ -108,24 +115,30 @@ export function SettingsPage() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      /* ignore */
+      toast.error("Could not save preferences in this browser.");
+      return;
     }
+    toast.success("Workspace preferences saved.");
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2500);
   }
 
   async function onSaveStore(e: FormEvent) {
     e.preventDefault();
-    setStoreErr(null);
     const res = await updateStoreSettings({
       store_name: storeName.trim() || "Store",
+      site_title: siteTitle.trim(),
+      site_description: siteDescription.trim(),
       support_email: supportEmail.trim(),
+      footer_phone: footerPhone.trim(),
+      footer_hours_line: footerHoursLine.trim(),
       default_currency: defaultCurrency.trim().toUpperCase() || "PKR",
     });
     if (!res.ok) {
-      setStoreErr(res.error ?? "Save failed.");
+      toast.error(res.error ?? "Save failed.");
       return;
     }
+    toast.success("Store settings saved.");
     setStoreSaved(true);
     window.setTimeout(() => setStoreSaved(false), 2500);
   }
@@ -136,8 +149,6 @@ export function SettingsPage() {
         title="Settings"
         description="Store configuration is saved to Supabase (store_settings). Workspace preferences stay in this browser."
       />
-
-      {storeErr ? <FlashMessage variant="error">{storeErr}</FlashMessage> : null}
 
       <form onSubmit={onSaveStore} className="mx-auto w-full max-w-3xl space-y-6">
         <Card className={ADMIN_LIST_CARD_CLASS}>
@@ -162,6 +173,24 @@ export function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="site-title">Site title (SEO)</Label>
+                  <Input
+                    id="site-title"
+                    value={siteTitle}
+                    onChange={(e) => setSiteTitle(e.target.value)}
+                    placeholder="Browser tab title — empty uses store name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="site-desc">Meta description</Label>
+                  <Input
+                    id="site-desc"
+                    value={siteDescription}
+                    onChange={(e) => setSiteDescription(e.target.value)}
+                    placeholder="Short description for search results"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor={supportEmailId}>Support email</Label>
                   <Input
                     id={supportEmailId}
@@ -169,6 +198,23 @@ export function SettingsPage() {
                     value={supportEmail}
                     onChange={(e) => setSupportEmail(e.target.value)}
                     autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="footer-phone">Footer phone / WhatsApp</Label>
+                  <Input
+                    id="footer-phone"
+                    value={footerPhone}
+                    onChange={(e) => setFooterPhone(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="footer-hours">Footer hours line</Label>
+                  <Input
+                    id="footer-hours"
+                    value={footerHoursLine}
+                    onChange={(e) => setFooterHoursLine(e.target.value)}
+                    placeholder="e.g. Mon–Sat 9am–6pm"
                   />
                 </div>
                 <div className="space-y-2">

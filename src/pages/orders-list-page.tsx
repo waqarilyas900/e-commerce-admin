@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -47,24 +47,22 @@ function statusVariant(
 export function OrdersListPage() {
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
   async function load() {
     if (!supabase) {
-      setError(
+      toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
       );
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       const data = await fetchOrdersAdmin({ limit: 200, status: filter });
       setRows(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load orders.");
+      toast.error(e instanceof Error ? e.message : "Failed to load orders.");
     } finally {
       setLoading(false);
     }
@@ -106,8 +104,6 @@ export function OrdersListPage() {
           </Button>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
 
       <AdminListCard
         title="Order desk"

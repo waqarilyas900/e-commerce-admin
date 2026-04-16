@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
+  LayoutGrid,
+  LayoutTemplate,
   LineChart,
   Settings,
   Search,
@@ -10,11 +12,13 @@ import {
   Layers,
   Ruler,
   Palette,
+  Tag,
   ClipboardList,
   MessageSquare,
   TicketPercent,
   Users,
   Heart,
+  Megaphone,
 } from "lucide-react";
 import { navGroups } from "@/config/navigation";
 import {
@@ -29,12 +33,16 @@ import {
 
 const iconMap = {
   "/dashboard": LayoutDashboard,
+  "/dashboard/hero": LayoutTemplate,
+  "/dashboard/announcement": Megaphone,
+  "/dashboard/home-sections": LayoutGrid,
   "/dashboard/analytics": LineChart,
   "/dashboard/products": Package,
   "/dashboard/orders": ClipboardList,
   "/dashboard/customers": Users,
   "/dashboard/sizes": Ruler,
   "/dashboard/colors": Palette,
+  "/dashboard/tags": Tag,
   "/dashboard/collections": Layers,
   "/dashboard/vouchers": TicketPercent,
   "/dashboard/reviews": MessageSquare,

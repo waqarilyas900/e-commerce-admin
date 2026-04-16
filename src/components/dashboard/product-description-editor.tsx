@@ -29,6 +29,8 @@ type Props = {
   value: string;
   onChange: (html: string) => void;
   id?: string;
+  /** TipTap placeholder (default: product copy). */
+  placeholder?: string;
 };
 
 function Toolbar({ editor }: { editor: Editor | null }) {
@@ -212,7 +214,12 @@ function Toolbar({ editor }: { editor: Editor | null }) {
   );
 }
 
-export function ProductDescriptionEditor({ value, onChange, id }: Props) {
+export function ProductDescriptionEditor({
+  value,
+  onChange,
+  id,
+  placeholder = "Describe this product…",
+}: Props) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -230,7 +237,7 @@ export function ProductDescriptionEditor({ value, onChange, id }: Props) {
           linkOnPaste: true,
         }),
         Placeholder.configure({
-          placeholder: "Describe this product…",
+          placeholder,
         }),
       ],
       content: value || "",
@@ -253,6 +260,7 @@ export function ProductDescriptionEditor({ value, onChange, id }: Props) {
         onChangeRef.current(ed.getHTML());
       },
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- TipTap instance is stable; placeholder is read on first mount
     [],
   );
 

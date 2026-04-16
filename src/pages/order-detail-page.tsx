@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   ADMIN_LIST_CARD_CLASS,
   ADMIN_LIST_CARD_HEADER_CLASS,
@@ -57,19 +57,15 @@ export function OrderDetailPage() {
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [history, setHistory] = useState<OrderStatusHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [nextStatus, setNextStatus] = useState<OrderStatus | "">("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
   async function load() {
     if (!orderId || !supabase) {
-      setError(!supabase ? "Supabase is not configured." : "Missing order id.");
+      toast.error(!supabase ? "Supabase is not configured." : "Missing order id.");
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       const [o, its, hist] = await Promise.all([
@@ -82,7 +78,7 @@ export function OrderDetailPage() {
       setHistory(hist);
       if (o) setNextStatus(o.status);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load order.");
+      toast.error(e instanceof Error ? e.message : "Failed to load order.");
     } finally {
       setLoading(false);
     }
@@ -94,27 +90,32 @@ export function OrderDetailPage() {
 
   async function onSaveStatus() {
     if (!orderId || !order || !nextStatus || nextStatus === order.status) {
-      setSaveMsg("Choose a new status to update.");
-      window.setTimeout(() => setSaveMsg(null), 2500);
+      toast.error("Choose a new status to update.");
       return;
     }
     setSaving(true);
-    setSaveMsg(null);
     const res = await updateOrderStatusAdmin(orderId, nextStatus, note || undefined);
     setSaving(false);
     if (!res.ok) {
-      setSaveMsg(res.error ?? "Update failed.");
+      toast.error(res.error ?? "Update failed.");
       return;
     }
     setNote("");
-    setSaveMsg("Status updated.");
+    toast.success("Status updated.");
     await load();
-    window.setTimeout(() => setSaveMsg(null), 2500);
   }
+
+  useEffect(() => {
+    if (!orderId) {
+      toast.error("Invalid order link.");
+    }
+  }, [orderId]);
 
   if (!orderId) {
     return (
-      <FlashMessage variant="error">Invalid order link.</FlashMessage>
+      <p className="text-sm text-destructive" role="alert">
+        Invalid order link.
+      </p>
     );
   }
 
@@ -138,13 +139,6 @@ export function OrderDetailPage() {
           </div>
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-      {saveMsg ? (
-        <FlashMessage variant={saveMsg.includes("failed") || saveMsg.includes("Choose") ? "error" : "success"}>
-          {saveMsg}
-        </FlashMessage>
-      ) : null}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

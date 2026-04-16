@@ -11,6 +11,7 @@ import { APP_NAME } from "@/config/brand";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import { AuthLayout } from "@/layouts/auth-layout";
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { LoginPage } from "@/pages/login-page";
@@ -28,12 +29,18 @@ import { SizesListPage } from "@/pages/sizes-list-page";
 import { SizeEditPage } from "@/pages/size-edit-page";
 import { ColorsListPage } from "@/pages/colors-list-page";
 import { ColorEditPage } from "@/pages/color-edit-page";
+import { TagsListPage } from "@/pages/tags-list-page";
+import { TagEditPage } from "@/pages/tag-edit-page";
 import { VouchersListPage } from "@/pages/vouchers-list-page";
 import { VoucherEditPage } from "@/pages/voucher-edit-page";
 import { OrdersListPage } from "@/pages/orders-list-page";
 import { OrderDetailPage } from "@/pages/order-detail-page";
 import { ReviewsListPage } from "@/pages/reviews-list-page";
 import { WishlistAdminPage } from "@/pages/wishlist-admin-page";
+import { HeroSectionPage } from "@/pages/hero-section-page";
+import { AnnouncementPage } from "@/pages/announcement-page";
+import { HomeSectionsListPage } from "@/pages/home-sections-list-page";
+import { HomeSectionEditPage } from "@/pages/home-section-edit-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -84,6 +91,11 @@ function AppRoutes() {
       <Route element={<RequireAuth />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardHome />} />
+          <Route path="/dashboard/hero" element={<HeroSectionPage />} />
+          <Route path="/dashboard/announcement" element={<AnnouncementPage />} />
+          <Route path="/dashboard/home-sections" element={<HomeSectionsListPage />} />
+          <Route path="/dashboard/home-sections/:sectionId" element={<HomeSectionEditPage />} />
+          <Route path="/dashboard/home" element={<Navigate to="/dashboard/hero" replace />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/customers" element={<CustomersListPage />} />
           <Route path="/dashboard/customers/:customerId" element={<CustomerDetailPage />} />
@@ -97,6 +109,8 @@ function AppRoutes() {
           <Route path="/dashboard/sizes/:sizeId" element={<SizeEditPage />} />
           <Route path="/dashboard/colors" element={<ColorsListPage />} />
           <Route path="/dashboard/colors/:colorId" element={<ColorEditPage />} />
+          <Route path="/dashboard/tags" element={<TagsListPage />} />
+          <Route path="/dashboard/tags/:tagId" element={<TagEditPage />} />
           <Route path="/dashboard/vouchers" element={<VouchersListPage />} />
           <Route path="/dashboard/vouchers/:voucherId" element={<VoucherEditPage />} />
           <Route path="/dashboard/orders" element={<OrdersListPage />} />
@@ -123,6 +137,7 @@ export default function App() {
         <TooltipProvider delayDuration={300}>
           <AuthProvider>
             <AppRoutes />
+            <Toaster />
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>

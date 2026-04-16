@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,9 +58,6 @@ export function ColorEditPage() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [uploadingSwatch, setUploadingSwatch] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   const [name, setName] = useState("");
   const [hex, setHex] = useState("");
   const [rgb, setRgb] = useState("");
@@ -79,7 +76,7 @@ export function ColorEditPage() {
       const row = await fetchColorById(colorId);
       if (cancelled) return;
       if (!row) {
-        setError("Color not found.");
+        toast.error("Color not found.");
         setLoading(false);
         return;
       }
@@ -100,29 +97,26 @@ export function ColorEditPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setError(null);
     setUploadingSwatch(true);
     const res = await uploadColorSwatch(file);
     setUploadingSwatch(false);
     if ("error" in res) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
     setSwatchImageUrl(res.publicUrl);
-    setMessage("Swatch uploaded — save to persist.");
+    toast.success("Swatch uploaded — save to persist.");
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase) {
-      setError("Database connection is not configured.");
+      toast.error("Database connection is not configured.");
       return;
     }
     const sort = Number.parseInt(sortOrder, 10);
     if (Number.isNaN(sort)) {
-      setError("Sort order must be a whole number.");
+      toast.error("Sort order must be a whole number.");
       return;
     }
     const payload: ColorWritePayload = {
@@ -134,17 +128,17 @@ export function ColorEditPage() {
       sort_order: sort,
     };
     if (!payload.name) {
-      setError("Name is required.");
+      toast.error("Name is required.");
       return;
     }
     setSaving(true);
     const result = await saveColor(isNew ? null : colorId ?? null, payload);
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
-    setMessage("Saved.");
+    toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/colors/${result.id}`, { replace: true });
     }
@@ -155,7 +149,7 @@ export function ColorEditPage() {
     if (!window.confirm("Delete this color? Variants will have color cleared.")) return;
     const err = await deleteColorRow(colorId);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
     navigate("/dashboard/colors");
@@ -180,9 +174,6 @@ export function ColorEditPage() {
         title={isNew ? "New color" : "Edit color"}
         description="Define a swatch for product variants: hex or RGB, optional texture image, and picker visibility."
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-      {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
 
       <form onSubmit={(e) => void onSubmit(e)} className="mx-auto w-full max-w-3xl space-y-6">
         <Card>

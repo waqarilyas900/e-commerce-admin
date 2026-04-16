@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { toast } from "sonner";
 import { saveColor, saveSize, type ColorWritePayload, type SizeWritePayload } from "@/lib/supabase/catalog";
 import type { ColorRow, SizeRow } from "@/lib/supabase/catalog-types";
 import { slugFromLabel } from "@/lib/slug";
@@ -99,7 +100,6 @@ export function QuickAddSizeDialog({
   const [sortOrder, setSortOrder] = useState("0");
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -109,48 +109,46 @@ export function QuickAddSizeDialog({
     setDisplayName("");
     setSizeType("text");
     setIsActive(true);
-    setError(null);
   }, [open, existingSizes]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     if (!supabase) {
-      setError("Database is not configured.");
+      toast.error("Database is not configured.");
       return;
     }
     const sort = Number.parseInt(sortOrder, 10);
     if (Number.isNaN(sort)) {
-      setError("Sort order must be a whole number.");
+      toast.error("Sort order must be a whole number.");
       return;
     }
     const trimmedDisplay = displayName.trim();
     const trimmedName =
       sizeType === "numeric" ? name.trim() : name.trim().toLowerCase();
     if (!trimmedName) {
-      setError("Name is required.");
+      toast.error("Name is required.");
       return;
     }
     if (!trimmedDisplay) {
-      setError("Display name is required.");
+      toast.error("Display name is required.");
       return;
     }
     if (sizeType === "numeric") {
       if (!NUMERIC_VALUE_PATTERN.test(trimmedName)) {
-        setError(
+        toast.error(
           "For numeric size type, name must be a number only (e.g. 8 or 8.5). Letters and other characters are not allowed.",
         );
         return;
       }
       if (!NUMERIC_VALUE_PATTERN.test(trimmedDisplay)) {
-        setError(
+        toast.error(
           "For numeric size type, display name must be a number only (e.g. 8 or 8.5).",
         );
         return;
       }
     } else {
       if (!TEXT_NAME_PATTERN.test(trimmedName)) {
-        setError(
+        toast.error(
           "Name may use lowercase letters, numbers, and underscores only (e.g. medium, 3xl, us_9).",
         );
         return;
@@ -168,9 +166,10 @@ export function QuickAddSizeDialog({
     const result = await saveSize(null, payload);
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Size added.");
     const newRow: SizeRow = {
       id: result.id,
       name: trimmedName,
@@ -194,12 +193,6 @@ export function QuickAddSizeDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
-          {error ? (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Size</CardTitle>
@@ -354,7 +347,6 @@ export function QuickAddColorDialog({
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingSwatch, setUploadingSwatch] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -365,34 +357,32 @@ export function QuickAddColorDialog({
     setRgb("");
     setSwatchImageUrl("");
     setIsActive(true);
-    setError(null);
   }, [open, existingColors]);
 
   async function onSwatchFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setError(null);
     setUploadingSwatch(true);
     const res = await uploadColorSwatch(file);
     setUploadingSwatch(false);
     if ("error" in res) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
     setSwatchImageUrl(res.publicUrl);
+    toast.success("Swatch uploaded.");
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     if (!supabase) {
-      setError("Database is not configured.");
+      toast.error("Database is not configured.");
       return;
     }
     const sort = Number.parseInt(sortOrder, 10);
     if (Number.isNaN(sort)) {
-      setError("Sort order must be a whole number.");
+      toast.error("Sort order must be a whole number.");
       return;
     }
     const payload: ColorWritePayload = {
@@ -404,16 +394,17 @@ export function QuickAddColorDialog({
       sort_order: sort,
     };
     if (!payload.name) {
-      setError("Name is required.");
+      toast.error("Name is required.");
       return;
     }
     setSaving(true);
     const result = await saveColor(null, payload);
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Color added.");
     const newRow: ColorRow = {
       id: result.id,
       name: payload.name,
@@ -438,12 +429,6 @@ export function QuickAddColorDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
-          {error ? (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Color</CardTitle>

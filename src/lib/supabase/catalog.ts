@@ -2,12 +2,15 @@ import { supabase } from "@/lib/supabase/client";
 import type {
   ColorRow,
   CollectionRow,
+  HomePageSectionRow,
   ProductAssetRow,
   ProductRow,
   ProductVariantDbRow,
   ProductVariantRow,
   SizeRow,
+  TagRow,
 } from "@/lib/supabase/catalog-types";
+import { CollectionTypeDb, collectionIsTagBased } from "@/lib/catalog/collection-type";
 import {
   optionDefinitionsFromDbRows,
   type VariantOptionSchemaEntry,
@@ -62,7 +65,7 @@ export async function fetchCollections(): Promise<CollectionRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("collections")
-    .select("id, slug, name, description, hero_image, sort_order")
+    .select("id, slug, name, description, hero_image, sort_order, collection_type")
     .order("sort_order", { ascending: true });
   if (error) {
     logCatalogIssue("fetchCollections", error.message);
@@ -71,8 +74,41 @@ export async function fetchCollections(): Promise<CollectionRow[]> {
   return (data ?? []) as CollectionRow[];
 }
 
+export async function fetchTags(): Promise<TagRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("tags")
+    .select("id, name, label, created_at, updated_at")
+    .order("label", { ascending: true });
+  if (error) {
+    logCatalogIssue("fetchTags", error.message);
+    return [];
+  }
+  return (data ?? []) as TagRow[];
+}
+
+export async function fetchTagById(id: string): Promise<TagRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("tags")
+    .select("id, name, label, created_at, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logCatalogIssue("fetchTagById", error.message);
+    return null;
+  }
+  return data as TagRow | null;
+}
+
+export type ProductCatalogTagRef = {
+  id: string;
+  /** Display label from `tags.label`. */
+  label: string;
+};
+
 export async function fetchProductsWithVariantCount(): Promise<
-  (ProductRow & { variant_count: number })[]
+  (ProductRow & { variant_count: number; catalog_tags: ProductCatalogTagRef[] })[]
 > {
   if (!supabase) return [];
   const { data: products, error: pErr } = await supabase
@@ -100,10 +136,66 @@ export async function fetchProductsWithVariantCount(): Promise<
     nByProduct.set(pid, (nByProduct.get(pid) ?? 0) + 1);
   }
 
-  return plist.map((p) => ({
-    ...p,
-    variant_count: nByProduct.get(p.id) ?? 0,
-  }));
+  const { data: ptRows } = await supabase
+    .from("product_tags")
+    .select("product_id, tag_id")
+    .in("product_id", ids);
+
+  const allTagIds = [
+    ...new Set((ptRows ?? []).map((r: { tag_id: string }) => r.tag_id)),
+  ];
+  const tagMetaById = new Map<string, ProductCatalogTagRef>();
+  if (allTagIds.length) {
+    const { data: tagRows, error: tagErr } = await supabase
+      .from("tags")
+      .select("id, label")
+      .in("id", allTagIds);
+    if (tagErr) {
+      logCatalogIssue("fetchTagsForProductList", tagErr.message);
+    } else {
+      for (const t of tagRows ?? []) {
+        const row = t as { id: string; label: string };
+        tagMetaById.set(row.id, { id: row.id, label: row.label });
+      }
+    }
+  }
+
+  const tagsByProduct = new Map<string, ProductCatalogTagRef[]>();
+  for (const r of ptRows ?? []) {
+    const pid = (r as { product_id: string; tag_id: string }).product_id;
+    const tid = (r as { product_id: string; tag_id: string }).tag_id;
+    const meta = tagMetaById.get(tid);
+    if (!meta) continue;
+    const list = tagsByProduct.get(pid) ?? [];
+    list.push(meta);
+    tagsByProduct.set(pid, list);
+  }
+
+  return plist.map((p) => {
+    const raw = tagsByProduct.get(p.id) ?? [];
+    const seen = new Set<string>();
+    const catalog_tags = raw
+      .filter((t) => {
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    const fromLegacy =
+      catalog_tags.length === 0 && p.tags?.length
+        ? p.tags.map((name) => ({
+            id: `legacy:${name}`,
+            label: name,
+          }))
+        : [];
+
+    return {
+      ...p,
+      variant_count: nByProduct.get(p.id) ?? 0,
+      catalog_tags: catalog_tags.length ? catalog_tags : fromLegacy,
+    };
+  });
 }
 
 export async function fetchProductWithVariants(
@@ -112,6 +204,7 @@ export async function fetchProductWithVariants(
   product: ProductRow;
   variants: ProductVariantRow[];
   collectionIds: string[];
+  tagIds: string[];
   assets: ProductAssetRow[];
 } | null> {
   if (!supabase) return null;
@@ -131,9 +224,28 @@ export async function fetchProductWithVariants(
     .from("product_collections")
     .select("collection_id")
     .eq("product_id", productId);
-  const collectionIds = (pcRows ?? []).map(
+  const rawCollectionIds = (pcRows ?? []).map(
     (r: { collection_id: string }) => r.collection_id,
   );
+  let collectionIds = rawCollectionIds;
+  if (rawCollectionIds.length) {
+    const { data: colMeta } = await supabase
+      .from("collections")
+      .select("id, collection_type")
+      .in("id", rawCollectionIds);
+    const manual = new Set(
+      (colMeta ?? [])
+        .filter((c: { collection_type?: string }) => !collectionIsTagBased(c.collection_type))
+        .map((c: { id: string }) => c.id),
+    );
+    collectionIds = rawCollectionIds.filter((id) => manual.has(id));
+  }
+
+  const { data: ptRows } = await supabase
+    .from("product_tags")
+    .select("tag_id")
+    .eq("product_id", productId);
+  const tagIds = (ptRows ?? []).map((r: { tag_id: string }) => r.tag_id);
 
   const { data: assetRows } = await supabase
     .from("product_assets")
@@ -203,6 +315,7 @@ export async function fetchProductWithVariants(
     },
     variants: merged,
     collectionIds,
+    tagIds,
     assets: (assetRows ?? []) as ProductAssetRow[],
   };
 }
@@ -217,6 +330,8 @@ export type ProductAssetPayload = {
 export type ProductSavePayload = {
   /** Any number of collections; empty = only in “All products” on the storefront. */
   collection_ids: string[];
+  /** Normalized tags (public.tags ids); also syncs `products.tags` text[] for legacy readers. */
+  tag_ids: string[];
   slug: string;
   name: string;
   short_description: string;
@@ -224,7 +339,6 @@ export type ProductSavePayload = {
   status: "draft" | "active";
   /** Gallery; `products.images` jsonb is derived from image rows for legacy storefront use. */
   assets: ProductAssetPayload[];
-  tags: string[];
   rating: number | null;
   reviews_count: number | null;
   stock_total: number;
@@ -233,6 +347,8 @@ export type ProductSavePayload = {
 };
 
 export type VariantSavePayload = {
+  /** Existing `product_variants.id` when editing — omit for new rows. */
+  id?: string | null;
   sku: string;
   option_values: Record<string, string>;
   /** Optional FK to public.sizes */
@@ -245,6 +361,121 @@ export type VariantSavePayload = {
   quantity_on_hand: number;
 };
 
+async function syncVariantsForExistingProduct(
+  productId: string,
+  variants: VariantSavePayload[],
+): Promise<{ error?: string }> {
+  if (!supabase) return { error: "Database connection is not configured." };
+
+  const { data: dbRows, error: fetchErr } = await supabase
+    .from("product_variants")
+    .select("id, sku")
+    .eq("product_id", productId);
+  if (fetchErr) return { error: fetchErr.message };
+
+  const dbList = (dbRows ?? []) as { id: string; sku: string }[];
+  const dbIds = new Set(dbList.map((r) => r.id));
+  const formIds = new Set(
+    variants.map((v) => v.id).filter((x): x is string => Boolean(x)),
+  );
+
+  for (const v of variants) {
+    const row = {
+      product_id: productId,
+      sku: v.sku.trim(),
+      option_values: v.option_values,
+      size_id: v.size_id && v.size_id !== "" ? v.size_id : null,
+      color_id: v.color_id && v.color_id !== "" ? v.color_id : null,
+      price: v.price,
+      compare_at_price: v.compare_at_price,
+    };
+
+    if (v.id) {
+      if (!dbIds.has(v.id)) {
+        return {
+          error: `Variant id mismatch — reload the product and try again (unknown id for this product).`,
+        };
+      }
+      const { error: uErr } = await supabase
+        .from("product_variants")
+        .update(row)
+        .eq("id", v.id)
+        .eq("product_id", productId);
+      if (uErr) return { error: uErr.message };
+
+      const { data: inv, error: invFetchErr } = await supabase
+        .from("inventory")
+        .select("quantity_reserved")
+        .eq("product_variant_id", v.id)
+        .maybeSingle();
+      if (invFetchErr) return { error: invFetchErr.message };
+      const reserved =
+        (inv as { quantity_reserved?: number } | null)?.quantity_reserved ?? 0;
+      const qoh = Math.max(0, v.quantity_on_hand);
+      if (qoh < reserved) {
+        return {
+          error: `Stock for “${v.sku.trim()}” cannot be below reserved units (${reserved}).`,
+        };
+      }
+
+      if (!inv) {
+        const { error: insInvErr } = await supabase.from("inventory").insert({
+          product_variant_id: v.id,
+          quantity_on_hand: qoh,
+          quantity_reserved: 0,
+        });
+        if (insInvErr) return { error: insInvErr.message };
+      } else {
+        const { error: invUpErr } = await supabase
+          .from("inventory")
+          .update({
+            quantity_on_hand: qoh,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("product_variant_id", v.id);
+        if (invUpErr) return { error: invUpErr.message };
+      }
+    } else {
+      const { data: ins, error: insErr } = await supabase
+        .from("product_variants")
+        .insert(row)
+        .select("id")
+        .single();
+      if (insErr || !ins) {
+        return { error: insErr?.message ?? "Variant insert failed." };
+      }
+      const newId = (ins as { id: string }).id;
+      const { error: invErr } = await supabase.from("inventory").insert({
+        product_variant_id: newId,
+        quantity_on_hand: Math.max(0, v.quantity_on_hand),
+        quantity_reserved: 0,
+      });
+      if (invErr) return { error: invErr.message };
+    }
+  }
+
+  const idsToRemove = dbList.map((r) => r.id).filter((vid) => !formIds.has(vid));
+  for (const vid of idsToRemove) {
+    const { data: oi, error: oiErr } = await supabase
+      .from("order_items")
+      .select("id")
+      .eq("product_variant_id", vid)
+      .limit(1)
+      .maybeSingle();
+    if (oiErr) return { error: oiErr.message };
+    if (oi) {
+      const sku = dbList.find((r) => r.id === vid)?.sku ?? vid;
+      return {
+        error: `Cannot remove variant “${sku}”: it appears on a customer order. Keep that SKU or leave stock at 0.`,
+      };
+    }
+    const { error: dErr } = await supabase.from("product_variants").delete().eq("id", vid);
+    if (dErr) return { error: dErr.message };
+  }
+
+  return {};
+}
+
 export async function saveProductAndVariants(
   productId: string | null,
   product: ProductSavePayload,
@@ -254,14 +485,28 @@ export async function saveProductAndVariants(
     return { id: "", error: "Database connection is not configured." };
   }
 
-  const { collection_ids, assets, option_definitions, ...productRest } = product;
+  const { collection_ids, assets, option_definitions, tag_ids, ...productRest } = product;
   const imageUrls = assets
     .filter((a) => a.kind === "image" && a.url.trim() !== "")
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((a) => a.url.trim());
+
+  let tagNames: string[] = [];
+  if (tag_ids.length && supabase) {
+    const { data: tagRows, error: tagFetchErr } = await supabase
+      .from("tags")
+      .select("name")
+      .in("id", tag_ids);
+    if (tagFetchErr) {
+      return { id: "", error: tagFetchErr.message };
+    }
+    tagNames = (tagRows ?? []).map((r: { name: string }) => r.name);
+  }
+
   const row = {
     ...productRest,
     images: imageUrls,
+    tags: tagNames,
     updated_at: new Date().toISOString(),
   };
 
@@ -284,6 +529,42 @@ export async function saveProductAndVariants(
     }
   }
 
+  const { error: ptDelErr } = await supabase
+    .from("product_tags")
+    .delete()
+    .eq("product_id", id);
+  if (ptDelErr) {
+    return { id, error: ptDelErr.message };
+  }
+  if (tag_ids.length > 0) {
+    const { error: ptInsErr } = await supabase.from("product_tags").insert(
+      tag_ids.map((tag_id) => ({
+        product_id: id,
+        tag_id,
+      })),
+    );
+    if (ptInsErr) {
+      return { id, error: ptInsErr.message };
+    }
+  }
+
+  let manualCollectionIds = collection_ids;
+  if (collection_ids.length > 0) {
+    const { data: colRows, error: colErr } = await supabase
+      .from("collections")
+      .select("id, collection_type")
+      .in("id", collection_ids);
+    if (colErr) {
+      return { id, error: colErr.message };
+    }
+    const allowed = new Set(
+      (colRows ?? [])
+        .filter((c: { collection_type?: string }) => !collectionIsTagBased(c.collection_type))
+        .map((c: { id: string }) => c.id),
+    );
+    manualCollectionIds = collection_ids.filter((cid) => allowed.has(cid));
+  }
+
   const { error: pcDelErr } = await supabase
     .from("product_collections")
     .delete()
@@ -291,9 +572,9 @@ export async function saveProductAndVariants(
   if (pcDelErr) {
     return { id, error: pcDelErr.message };
   }
-  if (collection_ids.length > 0) {
+  if (manualCollectionIds.length > 0) {
     const { error: pcInsErr } = await supabase.from("product_collections").insert(
-      collection_ids.map((cid) => ({
+      manualCollectionIds.map((cid) => ({
         product_id: id,
         collection_id: cid,
       })),
@@ -353,40 +634,49 @@ export async function saveProductAndVariants(
     }
   }
 
-  const { error: delErr } = await supabase
-    .from("product_variants")
-    .delete()
-    .eq("product_id", id);
-  if (delErr) {
-    return { id, error: delErr.message };
-  }
+  const isNewProduct = productId === null;
 
-  if (variants.length > 0) {
-    const { data: inserted, error: insErr } = await supabase
+  if (isNewProduct) {
+    const { error: delErr } = await supabase
       .from("product_variants")
-      .insert(
-        variants.map((v) => ({
-          product_id: id,
-          sku: v.sku.trim(),
-          option_values: v.option_values,
-          size_id: v.size_id && v.size_id !== "" ? v.size_id : null,
-          color_id: v.color_id && v.color_id !== "" ? v.color_id : null,
-          price: v.price,
-          compare_at_price: v.compare_at_price,
-        })),
-      )
-      .select("id");
-    if (insErr || !inserted?.length) {
-      return { id, error: insErr?.message ?? "Variant insert failed." };
+      .delete()
+      .eq("product_id", id);
+    if (delErr) {
+      return { id, error: delErr.message };
     }
-    const invRows = inserted.map((row, i) => ({
-      product_variant_id: (row as { id: string }).id,
-      quantity_on_hand: Math.max(0, variants[i]!.quantity_on_hand),
-      quantity_reserved: 0,
-    }));
-    const { error: invErr } = await supabase.from("inventory").insert(invRows);
-    if (invErr) {
-      return { id, error: invErr.message };
+
+    if (variants.length > 0) {
+      const { data: inserted, error: insErr } = await supabase
+        .from("product_variants")
+        .insert(
+          variants.map((v) => ({
+            product_id: id,
+            sku: v.sku.trim(),
+            option_values: v.option_values,
+            size_id: v.size_id && v.size_id !== "" ? v.size_id : null,
+            color_id: v.color_id && v.color_id !== "" ? v.color_id : null,
+            price: v.price,
+            compare_at_price: v.compare_at_price,
+          })),
+        )
+        .select("id");
+      if (insErr || !inserted?.length) {
+        return { id, error: insErr?.message ?? "Variant insert failed." };
+      }
+      const invRows = inserted.map((row, i) => ({
+        product_variant_id: (row as { id: string }).id,
+        quantity_on_hand: Math.max(0, variants[i]!.quantity_on_hand),
+        quantity_reserved: 0,
+      }));
+      const { error: invErr } = await supabase.from("inventory").insert(invRows);
+      if (invErr) {
+        return { id, error: invErr.message };
+      }
+    }
+  } else {
+    const sync = await syncVariantsForExistingProduct(id, variants);
+    if (sync.error) {
+      return { id, error: sync.error };
     }
   }
 
@@ -565,22 +855,73 @@ export async function deleteColorRow(colorId: string): Promise<string | undefine
   return error?.message;
 }
 
+export type TagWritePayload = {
+  /** Lowercase slug; unique. */
+  name: string;
+  /** Display label in admin and optional storefront use. */
+  label: string;
+};
+
+export async function saveTag(
+  tagId: string | null,
+  payload: TagWritePayload,
+): Promise<{ id: string; error?: string }> {
+  if (!supabase) {
+    return { id: "", error: "Database connection is not configured." };
+  }
+  const name = payload.name.trim().toLowerCase();
+  const label = payload.label.trim();
+  if (!name || !label) {
+    return { id: "", error: "Name and label are required." };
+  }
+  const row = {
+    name,
+    label,
+    updated_at: new Date().toISOString(),
+  };
+  if (!tagId) {
+    const { data, error } = await supabase
+      .from("tags")
+      .insert(row)
+      .select("id")
+      .single();
+    if (error || !data) {
+      return { id: "", error: error?.message ?? "Insert failed." };
+    }
+    return { id: (data as { id: string }).id };
+  }
+  const { error } = await supabase.from("tags").update(row).eq("id", tagId);
+  if (error) {
+    return { id: tagId, error: error.message };
+  }
+  return { id: tagId };
+}
+
+export async function deleteTagRow(tagId: string): Promise<string | undefined> {
+  if (!supabase) return "Database connection is not configured.";
+  const { error } = await supabase.from("tags").delete().eq("id", tagId);
+  return error?.message;
+}
+
 export type CollectionWritePayload = {
   slug: string;
   name: string;
   description: string;
   hero_image: string;
   sort_order: number;
+  collection_type: CollectionTypeDb;
+  /** Used when collection_type is tag_based; OR match on storefront. */
+  tag_ids: string[];
 };
 
 export async function fetchCollectionById(
   id: string,
-): Promise<CollectionRow | null> {
+): Promise<(CollectionRow & { tag_ids: string[] }) | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("collections")
     .select(
-      "id, slug, name, description, hero_image, sort_order, created_at, updated_at",
+      "id, slug, name, description, hero_image, sort_order, collection_type, created_at, updated_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -588,7 +929,13 @@ export async function fetchCollectionById(
     logCatalogIssue("fetchCollectionById", error.message);
     return null;
   }
-  return data as CollectionRow | null;
+  if (!data) return null;
+  const { data: ctRows } = await supabase
+    .from("collection_tags")
+    .select("tag_id")
+    .eq("collection_id", id);
+  const tag_ids = (ctRows ?? []).map((r: { tag_id: string }) => r.tag_id);
+  return { ...(data as CollectionRow), tag_ids };
 }
 
 export async function saveCollection(
@@ -598,11 +945,13 @@ export async function saveCollection(
   if (!supabase) {
     return { id: "", error: "Database connection is not configured." };
   }
+  const { tag_ids, ...collectionFields } = payload;
   const row = {
-    ...payload,
+    ...collectionFields,
     updated_at: new Date().toISOString(),
   };
-  if (!collectionId) {
+  let id = collectionId;
+  if (!id) {
     const { data, error } = await supabase
       .from("collections")
       .insert(row)
@@ -611,16 +960,44 @@ export async function saveCollection(
     if (error || !data) {
       return { id: "", error: error?.message ?? "Insert failed." };
     }
-    return { id: (data as { id: string }).id };
+    id = (data as { id: string }).id;
+  } else {
+    const { error } = await supabase.from("collections").update(row).eq("id", id);
+    if (error) {
+      return { id: id, error: error.message };
+    }
   }
-  const { error } = await supabase
-    .from("collections")
-    .update(row)
-    .eq("id", collectionId);
-  if (error) {
-    return { id: collectionId, error: error.message };
+
+  const { error: ctDelErr } = await supabase
+    .from("collection_tags")
+    .delete()
+    .eq("collection_id", id);
+  if (ctDelErr) {
+    return { id, error: ctDelErr.message };
   }
-  return { id: collectionId };
+
+  if (payload.collection_type === CollectionTypeDb.TagBased) {
+    if (tag_ids.length > 0) {
+      const { error: ctInsErr } = await supabase.from("collection_tags").insert(
+        tag_ids.map((tag_id) => ({
+          collection_id: id,
+          tag_id,
+        })),
+      );
+      if (ctInsErr) {
+        return { id, error: ctInsErr.message };
+      }
+    }
+    const { error: pcClrErr } = await supabase
+      .from("product_collections")
+      .delete()
+      .eq("collection_id", id);
+    if (pcClrErr) {
+      return { id, error: pcClrErr.message };
+    }
+  }
+
+  return { id };
 }
 
 export async function deleteCollectionRow(
@@ -631,5 +1008,109 @@ export async function deleteCollectionRow(
     .from("collections")
     .delete()
     .eq("id", collectionId);
+  return error?.message;
+}
+
+export async function fetchHomePageSections(): Promise<HomePageSectionRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("home_page_sections")
+    .select("id, name, slug, is_active, sort_order, created_at, updated_at")
+    .order("sort_order", { ascending: true });
+  if (error) {
+    logCatalogIssue("fetchHomePageSections", error.message);
+    return [];
+  }
+  return (data ?? []) as HomePageSectionRow[];
+}
+
+export async function fetchHomePageSectionById(
+  id: string,
+): Promise<(HomePageSectionRow & { tag_ids: string[] }) | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("home_page_sections")
+    .select("id, name, slug, is_active, sort_order, created_at, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logCatalogIssue("fetchHomePageSectionById", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const { data: linkRows } = await supabase
+    .from("home_page_section_tags")
+    .select("tag_id")
+    .eq("section_id", id);
+  const tag_ids = (linkRows ?? []).map((r: { tag_id: string }) => r.tag_id);
+  return { ...(data as HomePageSectionRow), tag_ids };
+}
+
+export type HomePageSectionWritePayload = {
+  name: string;
+  slug: string;
+  is_active: boolean;
+  sort_order: number;
+  tag_ids: string[];
+};
+
+export async function saveHomePageSection(
+  sectionId: string | null,
+  payload: HomePageSectionWritePayload,
+): Promise<{ id: string; error?: string }> {
+  if (!supabase) {
+    return { id: "", error: "Database connection is not configured." };
+  }
+  const { tag_ids, ...fields } = payload;
+  const row = {
+    ...fields,
+    updated_at: new Date().toISOString(),
+  };
+  let id = sectionId;
+  if (!id) {
+    const { data, error } = await supabase
+      .from("home_page_sections")
+      .insert(row)
+      .select("id")
+      .single();
+    if (error || !data) {
+      return { id: "", error: error?.message ?? "Insert failed." };
+    }
+    id = (data as { id: string }).id;
+  } else {
+    const { error } = await supabase.from("home_page_sections").update(row).eq("id", id);
+    if (error) {
+      return { id, error: error.message };
+    }
+  }
+
+  const { error: delErr } = await supabase
+    .from("home_page_section_tags")
+    .delete()
+    .eq("section_id", id);
+  if (delErr) {
+    return { id, error: delErr.message };
+  }
+
+  if (tag_ids.length > 0) {
+    const { error: insErr } = await supabase.from("home_page_section_tags").insert(
+      tag_ids.map((tag_id) => ({
+        section_id: id,
+        tag_id,
+      })),
+    );
+    if (insErr) {
+      return { id, error: insErr.message };
+    }
+  }
+
+  return { id };
+}
+
+export async function deleteHomePageSection(
+  sectionId: string,
+): Promise<string | undefined> {
+  if (!supabase) return "Database connection is not configured.";
+  const { error } = await supabase.from("home_page_sections").delete().eq("id", sectionId);
   return error?.message;
 }

@@ -1,6 +1,7 @@
 /** Catalog table row shapes used by the storefront database. */
 
 import type { VariantOptionSchemaEntry } from "@/lib/variant-option-schema";
+import { type CollectionTypeDb } from "@/lib/catalog/collection-type";
 
 export type CollectionRow = {
   id: string;
@@ -9,6 +10,28 @@ export type CollectionRow = {
   description: string;
   hero_image: string;
   sort_order: number;
+  /** `public.collection_type` enum; omit only before migration. */
+  collection_type?: CollectionTypeDb;
+};
+
+/** Normalized catalog tag (products and tag-based collections reference by id). */
+export type TagRow = {
+  id: string;
+  name: string;
+  label: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Homepage product rail (`public.home_page_sections`). */
+export type HomePageSectionRow = {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 };
 
 /** Global size options (XS, S, M, …) for variants. */

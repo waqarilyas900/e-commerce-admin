@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,9 +85,6 @@ export function VoucherEditPage() {
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   const [createKind, setCreateKind] = useState<"shared" | "multi">("multi");
   const [sharedCodeInput, setSharedCodeInput] = useState("WELCOME10");
   const [batchName, setBatchName] = useState("New campaign");
@@ -132,7 +129,7 @@ export function VoucherEditPage() {
       ]);
       if (cancelled) return;
       if (!s) {
-        setError("Batch not found.");
+        toast.error("Batch not found.");
         setLoading(false);
         return;
       }
@@ -247,10 +244,8 @@ export function VoucherEditPage() {
 
   async function onCreateSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase) {
-      setError("Database connection is not configured.");
+      toast.error("Database connection is not configured.");
       return;
     }
     setSaving(true);
@@ -259,22 +254,22 @@ export function VoucherEditPage() {
       const vu = new Date(validUntil).toISOString();
       if (new Date(vu) <= new Date(vf)) {
         setSaving(false);
-        setError("Valid until must be after valid from.");
+        toast.error("Valid until must be after valid from.");
         return;
       }
       const payload = buildFullPayload();
       if (payload.voucher_amount == null || payload.voucher_amount <= 0) {
         setSaving(false);
-        setError("Enter a valid discount amount.");
+        toast.error("Enter a valid discount amount.");
         return;
       }
       const result = await createSharedVoucherBatch(payload, sharedCodeInput);
       setSaving(false);
       if (result.error) {
-        setError(result.error);
+        toast.error(result.error);
         return;
       }
-      setMessage("Created shared voucher code.");
+      toast.success("Created shared voucher code.");
       navigate(`/dashboard/vouchers/${result.batchId}`, { replace: true });
       return;
     }
@@ -282,17 +277,17 @@ export function VoucherEditPage() {
     const qty = Number.parseInt(quantity, 10);
     if (Number.isNaN(qty) || qty < 1) {
       setSaving(false);
-      setError("Enter how many voucher codes to generate (1–10,000).");
+      toast.error("Enter how many voucher codes to generate (1–10,000).");
       return;
     }
     if (deferBatchRules) {
       const result = await createVoucherBatchWithQuantity(buildDeferredPayload(), qty);
       setSaving(false);
       if (result.error) {
-        setError(result.error);
+        toast.error(result.error);
         return;
       }
-      setMessage(`Created ${qty} voucher codes (set discount & dates per code when assigning).`);
+      toast.success(`Created ${qty} voucher codes (set discount & dates per code when assigning).`);
       navigate(`/dashboard/vouchers/${result.batchId}`, { replace: true });
       return;
     }
@@ -301,29 +296,27 @@ export function VoucherEditPage() {
     const vu = new Date(validUntil).toISOString();
     if (new Date(vu) <= new Date(vf)) {
       setSaving(false);
-      setError("Valid until must be after valid from.");
+      toast.error("Valid until must be after valid from.");
       return;
     }
     const payload = buildFullPayload();
     if (payload.voucher_amount == null || payload.voucher_amount <= 0) {
       setSaving(false);
-      setError("Enter a valid discount amount.");
+      toast.error("Enter a valid discount amount.");
       return;
     }
     const result = await createVoucherBatchWithQuantity(payload, qty);
     setSaving(false);
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
-    setMessage(`Created ${qty} voucher codes.`);
+    toast.success(`Created ${qty} voucher codes.`);
     navigate(`/dashboard/vouchers/${result.batchId}`, { replace: true });
   }
 
   async function onUpdateBatch(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     if (!supabase || !voucherId || isNew) return;
 
     let payload: VoucherBatchWritePayload;
@@ -331,12 +324,12 @@ export function VoucherEditPage() {
       const vf = new Date(validFrom).toISOString();
       const vu = new Date(validUntil).toISOString();
       if (new Date(vu) <= new Date(vf)) {
-        setError("Valid until must be after valid from.");
+        toast.error("Valid until must be after valid from.");
         return;
       }
       payload = buildFullPayload();
       if (payload.voucher_amount == null || payload.voucher_amount <= 0) {
-        setError("Enter a valid discount amount.");
+        toast.error("Enter a valid discount amount.");
         return;
       }
     } else if (deferBatchRules) {
@@ -345,12 +338,12 @@ export function VoucherEditPage() {
       const vf = new Date(validFrom).toISOString();
       const vu = new Date(validUntil).toISOString();
       if (new Date(vu) <= new Date(vf)) {
-        setError("Valid until must be after valid from.");
+        toast.error("Valid until must be after valid from.");
         return;
       }
       payload = buildFullPayload();
       if (payload.voucher_amount == null || payload.voucher_amount <= 0) {
-        setError("Enter a valid discount amount.");
+        toast.error("Enter a valid discount amount.");
         return;
       }
     }
@@ -359,10 +352,10 @@ export function VoucherEditPage() {
     const { error: uErr } = await updateVoucherBatch(voucherId, payload);
     setSaving(false);
     if (uErr) {
-      setError(uErr);
+      toast.error(uErr);
       return;
     }
-    setMessage("Campaign rules saved.");
+    toast.success("Campaign rules saved.");
     const s = await fetchVoucherBatchStatsById(voucherId);
     if (s) {
       setStats(s);
@@ -373,8 +366,6 @@ export function VoucherEditPage() {
   }
 
   async function onAssign(instanceId: string) {
-    setError(null);
-    setMessage(null);
     const uid = assignDraft[instanceId]?.trim() || null;
     const ov = overrideDraft[instanceId];
     const merged = rowOverridesForSave(instanceId, ov, overrideProducts);
@@ -383,10 +374,10 @@ export function VoucherEditPage() {
       ? await assignVoucherInstance(instanceId, uid, merged, lbl)
       : await assignVoucherInstance(instanceId, null);
     if (aErr) {
-      setError(aErr);
+      toast.error(aErr);
       return;
     }
-    setMessage(uid ? "Assignment saved." : "Assignment cleared.");
+    toast.success(uid ? "Assignment saved." : "Assignment cleared.");
     if (voucherId) {
       const inst = await fetchVoucherInstances(voucherId);
       setInstances(inst);
@@ -426,7 +417,7 @@ export function VoucherEditPage() {
     if (!window.confirm("Delete this entire batch and all its codes?")) return;
     const err = await deleteVoucherBatch(voucherId);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
     navigate("/dashboard/vouchers");
@@ -466,9 +457,6 @@ export function VoucherEditPage() {
               : "Generate unique codes. Optionally skip batch-wide discount and set rules per code when assigning—or set defaults here for all codes."
           }
         />
-        {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-        {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
-
         <form onSubmit={(e) => void onCreateSubmit(e)} className="mx-auto w-full max-w-3xl space-y-6">
           <Card>
             <CardHeader>
@@ -718,9 +706,6 @@ export function VoucherEditPage() {
               : "Update default rules or assign codes to customers. Each unique code works once. Optional per-assignment overrides when a code is assigned."
         }
       />
-
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-      {message ? <FlashMessage variant="success">{message}</FlashMessage> : null}
 
       {stats ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

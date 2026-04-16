@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FlashMessage } from "@/components/dashboard/flash-message";
+import { toast } from "sonner";
 import {
   AdminListCard,
   AdminListEmpty,
@@ -61,20 +61,17 @@ export function CustomerDetailPage() {
   const [vouchers, setVouchers] = useState<VoucherInstanceRow[]>([]);
   const [wishlist, setWishlist] = useState<WishlistAdminRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     if (!customerId) {
-      setError("Missing customer id.");
       setLoading(false);
       return;
     }
     if (!supabase) {
-      setError("Supabase is not configured.");
+      toast.error("Supabase is not configured.");
       setLoading(false);
       return;
     }
-    setError(null);
     setLoading(true);
     try {
       const [c, o, r, v, w] = await Promise.all([
@@ -90,7 +87,7 @@ export function CustomerDetailPage() {
       setVouchers(v);
       setWishlist(w);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load customer.");
+      toast.error(e instanceof Error ? e.message : "Failed to load customer.");
     } finally {
       setLoading(false);
     }
@@ -100,8 +97,24 @@ export function CustomerDetailPage() {
     void load();
   }, [customerId]);
 
+  useEffect(() => {
+    if (!customerId) {
+      toast.error("Invalid customer link.");
+    }
+  }, [customerId]);
+
+  useEffect(() => {
+    if (!loading && customerId && supabase && !customer) {
+      toast.error("Customer not found.");
+    }
+  }, [loading, customerId, customer]);
+
   if (!customerId) {
-    return <FlashMessage variant="error">Invalid customer link.</FlashMessage>;
+    return (
+      <p className="text-sm text-destructive" role="alert">
+        Invalid customer link.
+      </p>
+    );
   }
 
   return (
@@ -125,12 +138,12 @@ export function CustomerDetailPage() {
         }
       />
 
-      {error ? <FlashMessage variant="error">{error}</FlashMessage> : null}
-
       {loading ? (
         <AdminListSkeleton rows={4} />
       ) : !customer ? (
-        <FlashMessage variant="error">Customer not found.</FlashMessage>
+        <p className="text-sm text-muted-foreground" role="status">
+          Customer not found.
+        </p>
       ) : (
         <div className="space-y-8">
           <div className="grid gap-6 lg:grid-cols-3">
