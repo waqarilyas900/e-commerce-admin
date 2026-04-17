@@ -9,6 +9,9 @@ export type StoreSettingsRow = {
   default_currency: string;
   footer_phone: string;
   footer_hours_line: string;
+  standard_delivery_paisa?: number | null;
+  standard_delivery_currency?: string | null;
+  free_delivery_thresholds_paisa?: unknown;
   updated_at: string;
 };
 
@@ -22,7 +25,7 @@ export async function fetchStoreSettings(): Promise<StoreSettingsRow | null> {
   const { data, error } = await supabase
     .from("store_settings")
     .select(
-      "id, store_name, site_title, site_description, support_email, default_currency, footer_phone, footer_hours_line, updated_at",
+      "id, store_name, site_title, site_description, support_email, default_currency, footer_phone, footer_hours_line, standard_delivery_paisa, standard_delivery_currency, free_delivery_thresholds_paisa, updated_at",
     )
     .eq("id", 1)
     .maybeSingle();
@@ -41,6 +44,9 @@ export async function updateStoreSettings(patch: {
   default_currency?: string;
   footer_phone?: string;
   footer_hours_line?: string;
+  standard_delivery_paisa?: number;
+  standard_delivery_currency?: string;
+  free_delivery_thresholds_paisa?: unknown;
 }): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
   const { error } = await supabase

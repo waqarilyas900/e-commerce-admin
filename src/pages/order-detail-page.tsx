@@ -221,6 +221,75 @@ export function OrderDetailPage() {
             </Card>
           </div>
 
+          {(() => {
+            const snap = order.checkout_snapshot;
+            const delivery =
+              snap && typeof snap === "object"
+                ? (snap as Record<string, unknown>).delivery
+                : null;
+            if (!delivery || typeof delivery !== "object") return null;
+            const d = delivery as Record<string, unknown>;
+            const thresholds = d.free_delivery_thresholds_paisa;
+            const thresholdLabel =
+              Array.isArray(thresholds) && thresholds.length > 0
+                ? thresholds.map((x) => String(x)).join(", ")
+                : "—";
+            return (
+              <Card className={ADMIN_LIST_CARD_CLASS}>
+                <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
+                  <CardTitle>Delivery rules at checkout</CardTitle>
+                  <CardDescription>
+                    Snapshot of store delivery settings used to compute this order (immutable record).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "grid gap-3 text-sm sm:grid-cols-2")}>
+                  <div>
+                    <p className="text-muted-foreground">Standard delivery (minor units)</p>
+                    <p className="mt-1 tabular-nums font-medium">
+                      {typeof d.standard_delivery_paisa === "number"
+                        ? formatMinorUnits(d.standard_delivery_paisa, "PKR")
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Currency</p>
+                    <p className="mt-1 font-medium">
+                      {typeof d.standard_delivery_currency === "string"
+                        ? d.standard_delivery_currency
+                        : "—"}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-muted-foreground">Free-delivery thresholds (minor units)</p>
+                    <p className="mt-1 font-mono text-xs">{thresholdLabel}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Merchandise subtotal (minor units)</p>
+                    <p className="mt-1 tabular-nums font-medium">
+                      {typeof d.merchandise_subtotal_paisa === "number"
+                        ? formatMinorUnits(d.merchandise_subtotal_paisa, order.currency)
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Shipping charged (minor units)</p>
+                    <p className="mt-1 tabular-nums font-medium">
+                      {typeof d.shipping_charged_paisa === "number"
+                        ? formatMinorUnits(d.shipping_charged_paisa, order.currency)
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Free shipping applied</p>
+                    <p className="mt-1 font-medium">
+                      {d.free_shipping_applied === true ? "Yes" : d.free_shipping_applied === false ? "No" : "—"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           <Card className={ADMIN_LIST_CARD_CLASS}>
             <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
               <CardTitle>Customer & shipping</CardTitle>
@@ -272,27 +341,52 @@ export function OrderDetailPage() {
                 <p className="text-sm text-muted-foreground">No line items.</p>
               ) : (
                 <TableContainer>
-                  <table className="w-full min-w-[640px] text-left text-sm">
+                  <table className="w-full min-w-[900px] text-left text-sm">
                     <thead>
                       <tr className={ADMIN_TABLE_HEAD}>
                         <th className={adminTh()}>Product</th>
                         <th className={adminTh()}>SKU</th>
                         <th className={adminTh()}>Unit</th>
+                        <th className={adminTh()}>Compare</th>
                         <th className={adminTh()}>Qty</th>
+                        <th className={adminTh()}>Stock @ order</th>
                         <th className={adminThEnd()}>Line</th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((line) => (
                         <tr key={line.id} className={ADMIN_TABLE_ROW}>
-                          <td className={adminTd()}>{line.product_name_snapshot}</td>
+                          <td className={adminTd()}>
+                            <div className="font-medium">{line.product_name_snapshot}</div>
+                            {line.product_slug_snapshot ? (
+                              <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                                {line.product_slug_snapshot}
+                              </div>
+                            ) : null}
+                          </td>
                           <td className={adminTd("font-mono text-xs")}>{line.sku_snapshot}</td>
                           <td className={adminTd("tabular-nums")}>
                             {formatMinorUnits(line.unit_price_cents, order.currency)}
                           </td>
-                          <td className={adminTd("tabular-nums")}>{line.quantity}</td>
                           <td className={adminTd("tabular-nums")}>
-                            {formatMinorUnits(line.unit_price_cents * line.quantity, order.currency)}
+                            {line.compare_at_unit_price_cents != null
+                              ? formatMinorUnits(line.compare_at_unit_price_cents, order.currency)
+                              : "—"}
+                          </td>
+                          <td className={adminTd("tabular-nums")}>{line.quantity}</td>
+                          <td className={adminTd("text-xs tabular-nums")}>
+                            {line.inventory_on_hand_before != null &&
+                            line.inventory_reserved_before != null ? (
+                              <>
+                                {line.inventory_on_hand_before} on hand · {line.inventory_reserved_before}{" "}
+                                reserved
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className={adminTd("tabular-nums")}>
+                            {formatMinorUnits(line.line_subtotal_cents, order.currency)}
                           </td>
                         </tr>
                       ))}
@@ -306,7 +400,7 @@ export function OrderDetailPage() {
           <Card className={ADMIN_LIST_CARD_CLASS}>
             <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
               <CardTitle>Status timeline</CardTitle>
-              <CardDescription>Append-only history (place_order + manual updates).</CardDescription>
+              <CardDescription>Append-only history from checkout and manual updates.</CardDescription>
             </CardHeader>
             <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
               {history.length === 0 ? (

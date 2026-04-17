@@ -35,6 +35,8 @@ export type OrderRow = {
   shipping_province: string;
   payment_method: PaymentMethod;
   customer_note: string;
+  /** Point-in-time JSON from checkout (e.g. delivery rules used). */
+  checkout_snapshot: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 };
@@ -48,6 +50,12 @@ export type OrderItemRow = {
   unit_price_cents: number;
   quantity: number;
   option_values_snapshot: Record<string, unknown>;
+  product_slug_snapshot: string;
+  primary_image_url_snapshot: string;
+  compare_at_unit_price_cents: number | null;
+  line_subtotal_cents: number;
+  inventory_on_hand_before: number | null;
+  inventory_reserved_before: number | null;
 };
 
 export type OrderStatusHistoryRow = {
@@ -80,6 +88,7 @@ const ORDER_SELECT = [
   "shipping_province",
   "payment_method",
   "customer_note",
+  "checkout_snapshot",
   "created_at",
   "updated_at",
 ].join(", ");
@@ -153,7 +162,22 @@ export async function fetchOrderItemsAdmin(
   const { data, error } = await supabase
     .from("order_items")
     .select(
-      "id, order_id, product_variant_id, product_name_snapshot, sku_snapshot, unit_price_cents, quantity, option_values_snapshot",
+      [
+        "id",
+        "order_id",
+        "product_variant_id",
+        "product_name_snapshot",
+        "sku_snapshot",
+        "unit_price_cents",
+        "quantity",
+        "option_values_snapshot",
+        "product_slug_snapshot",
+        "primary_image_url_snapshot",
+        "compare_at_unit_price_cents",
+        "line_subtotal_cents",
+        "inventory_on_hand_before",
+        "inventory_reserved_before",
+      ].join(", "),
     )
     .eq("order_id", orderId);
   if (error) {

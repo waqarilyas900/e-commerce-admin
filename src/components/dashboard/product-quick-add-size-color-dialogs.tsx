@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -184,15 +178,22 @@ export function QuickAddSizeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>New size</DialogTitle>
-          <DialogDescription>
-            Same fields as the Sizes admin page. Saved to the catalog immediately and available in
-            dropdowns here without refreshing.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
+      <AdminStandardDialogContent
+        className="max-w-lg"
+        title="New size"
+        subtitle="Same fields as the Sizes admin page. Saved to the catalog immediately and available in dropdowns here without refreshing."
+        footer={
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="qa-size-form" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        }
+      >
+        <form id="qa-size-form" onSubmit={(e) => void onSubmit(e)} className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Size</CardTitle>
@@ -310,17 +311,8 @@ export function QuickAddSizeDialog({
               </label>
             </CardContent>
           </Card>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
+      </AdminStandardDialogContent>
     </Dialog>
   );
 }
@@ -420,15 +412,22 @@ export function QuickAddColorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>New color</DialogTitle>
-          <DialogDescription>
-            Same fields as the Colors admin page. Saved immediately and available in dropdowns here
-            without refreshing.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
+      <AdminStandardDialogContent
+        className="max-w-3xl"
+        title="New color"
+        subtitle="Same fields as the Colors admin page. Saved immediately and available in dropdowns here without refreshing."
+        footer={
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="qa-color-form" disabled={saving || uploadingSwatch}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        }
+      >
+        <form id="qa-color-form" onSubmit={(e) => void onSubmit(e)} className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Color</CardTitle>
@@ -567,17 +566,8 @@ export function QuickAddColorDialog({
               </div>
             </CardContent>
           </Card>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving || uploadingSwatch}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
+      </AdminStandardDialogContent>
     </Dialog>
   );
 }

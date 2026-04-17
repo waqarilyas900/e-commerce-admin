@@ -19,6 +19,7 @@ import {
   Users,
   Heart,
   Megaphone,
+  Truck,
 } from "lucide-react";
 import { navGroups } from "@/config/navigation";
 import {
@@ -36,6 +37,7 @@ const iconMap = {
   "/dashboard/hero": LayoutTemplate,
   "/dashboard/announcement": Megaphone,
   "/dashboard/home-sections": LayoutGrid,
+  "/dashboard/delivery": Truck,
   "/dashboard/analytics": LineChart,
   "/dashboard/products": Package,
   "/dashboard/orders": ClipboardList,

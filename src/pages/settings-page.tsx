@@ -147,7 +147,7 @@ export function SettingsPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Settings"
-        description="Store configuration is saved to Supabase (store_settings). Workspace preferences stay in this browser."
+        description="Store profile and contact details are saved for your live site. Delivery pricing is under Store configuration → Delivery. Workspace preferences below stay in this browser only."
       />
 
       <form onSubmit={onSaveStore} className="mx-auto w-full max-w-3xl space-y-6">
@@ -155,7 +155,7 @@ export function SettingsPage() {
           <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
             <CardTitle>Store (database)</CardTitle>
             <CardDescription>
-              Singleton row <code className="text-xs">public.store_settings</code> — used by checkout and catalog helpers.
+              Identity, SEO, and footer details shown to customers on the storefront.
             </CardDescription>
           </CardHeader>
           <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>

@@ -1,4 +1,4 @@
-/** Store amounts use minor units (*_cents / paisa). Display in major currency units. */
+/** Amounts are stored in minor units (e.g. ×100 PKR); this formats for display in rupees. */
 export function formatMinorUnits(
   minorUnits: number,
   currency: string,

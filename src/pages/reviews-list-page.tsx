@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ReviewComposeAdminDialog } from "@/components/dashboard/review-compose-admin-dialog";
 import { toast } from "sonner";
 import {
   AdminListCard,
@@ -17,9 +18,13 @@ import {
   adminThEnd,
   adminTd,
 } from "@/components/dashboard/admin-list-shell";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import {
   fetchReviewsAdmin,
   updateReviewStatusAdmin,
+  deleteReviewAdmin,
+  parseReviewMediaItems,
   type ReviewAdminRow,
   type ReviewModerationStatus,
 } from "@/lib/supabase/reviews-admin";
@@ -33,11 +38,17 @@ const TABS: Array<{ value: ReviewModerationStatus | "all"; label: string }> = [
   { value: "rejected", label: "Rejected" },
 ];
 
+const STAR_LEVELS = [1, 2, 3, 4, 5] as const;
+
 export function ReviewsListPage() {
   const [rows, setRows] = useState<ReviewAdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ReviewModerationStatus | "all">("pending");
+  /** Which star ratings to include in the list (multi-select). At least one must stay on. */
+  const [ratingFilter, setRatingFilter] = useState<number[]>(() => [...STAR_LEVELS]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function load() {
     if (!supabase) {
@@ -49,7 +60,11 @@ export function ReviewsListPage() {
     }
     setLoading(true);
     try {
-      const data = await fetchReviewsAdmin({ limit: 200, status: filter });
+      const data = await fetchReviewsAdmin({
+        limit: 200,
+        status: filter,
+        ratings: ratingFilter.length > 0 ? ratingFilter : [...STAR_LEVELS],
+      });
       setRows(data);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load reviews.");
@@ -58,9 +73,28 @@ export function ReviewsListPage() {
     }
   }
 
+  const ratingFilterKey = ratingFilter.slice().sort((a, b) => a - b).join(",");
+
   useEffect(() => {
     void load();
-  }, [filter]);
+  }, [filter, ratingFilterKey]);
+
+  function toggleRatingStar(n: number) {
+    setRatingFilter((prev) => {
+      if (prev.includes(n)) {
+        if (prev.length <= 1) {
+          toast.info("Keep at least one star level selected.");
+          return prev;
+        }
+        return prev.filter((x) => x !== n);
+      }
+      return [...prev, n].sort((a, b) => a - b);
+    });
+  }
+
+  function selectAllRatings() {
+    setRatingFilter([...STAR_LEVELS]);
+  }
 
   async function setStatus(id: string, status: ReviewModerationStatus) {
     setBusyId(id);
@@ -73,42 +107,126 @@ export function ReviewsListPage() {
     await load();
   }
 
+  async function confirmDelete() {
+    if (!deleteId) return;
+    setBusyId(deleteId);
+    const res = await deleteReviewAdmin(deleteId);
+    setBusyId(null);
+    setDeleteId(null);
+    if (!res.ok) {
+      toast.error(res.error ?? "Delete failed.");
+      return;
+    }
+    toast.success("Review deleted.");
+    await load();
+  }
+
   const filterBar = (
-    <AdminFilterBar>
-      {TABS.map((t) => (
+    <div className="flex w-full flex-col gap-3">
+      <AdminFilterBar>
+        {TABS.map((t) => (
+          <Button
+            key={t.value}
+            type="button"
+            size="sm"
+            variant={filter === t.value ? "default" : "ghost"}
+            className={cn(
+              "rounded-lg",
+              filter === t.value ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => setFilter(t.value)}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </AdminFilterBar>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Star ratings
+        </span>
+        {STAR_LEVELS.map((n) => (
+          <Button
+            key={n}
+            type="button"
+            size="sm"
+            variant={ratingFilter.includes(n) ? "secondary" : "outline"}
+            className={cn(
+              "h-8 min-w-9 rounded-lg px-2 tabular-nums",
+              ratingFilter.includes(n) ? "shadow-sm" : "text-muted-foreground",
+            )}
+            onClick={() => toggleRatingStar(n)}
+            title={
+              ratingFilter.includes(n)
+                ? `Hide ${n}-star reviews (click again)`
+                : `Show ${n}-star reviews`
+            }
+          >
+            {n}★
+          </Button>
+        ))}
         <Button
-          key={t.value}
           type="button"
+          variant="ghost"
           size="sm"
-          variant={filter === t.value ? "default" : "ghost"}
-          className={cn(
-            "rounded-lg",
-            filter === t.value ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
-          )}
-          onClick={() => setFilter(t.value)}
+          className="h-8 text-xs text-muted-foreground"
+          onClick={selectAllRatings}
         >
-          {t.label}
+          All stars
         </Button>
-      ))}
-    </AdminFilterBar>
+      </div>
+    </div>
   );
 
   return (
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Reviews"
-        description="Moderate storefront reviews: pending items are hidden from the public catalog until approved."
+        description="Moderate storefront reviews, delete spam, or add a review attributed to a customer account. Approved reviews show as Verified buyer on the PDP."
         actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={() => setComposeOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add review as customer
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
         }
       />
 
+      <ReviewComposeAdminDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        onCreated={() => void load()}
+      />
+
+      <Dialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AdminStandardDialogContent
+          title="Delete this review?"
+          subtitle="This removes the review permanently and updates the product's rating and review count. This cannot be undone."
+          footer={
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setDeleteId(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={busyId !== null}
+                onClick={() => void confirmDelete()}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+
       <AdminListCard
         title="Moderation queue"
-        description="Linked product names load when the foreign key embed succeeds."
+        description="Product and reviewer names load from linked rows."
         headerRight={filterBar}
       >
         {loading ? (
@@ -117,11 +235,13 @@ export function ReviewsListPage() {
           <AdminListEmpty>No reviews in this filter.</AdminListEmpty>
         ) : (
           <TableContainer>
-            <table className="w-full min-w-[800px] text-left text-sm">
+            <table className="w-full min-w-[1040px] text-left text-sm">
               <thead>
                 <tr className={ADMIN_TABLE_HEAD}>
                   <th className={adminTh()}>Product</th>
+                  <th className={adminTh()}>Reviewer</th>
                   <th className={adminTh()}>Rating</th>
+                  <th className={adminTh()}>Media</th>
                   <th className={adminTh()}>Title</th>
                   <th className={adminTh()}>Status</th>
                   <th className={adminTh()}>Submitted</th>
@@ -131,11 +251,41 @@ export function ReviewsListPage() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className={ADMIN_TABLE_ROW}>
-                    <td className={adminTd("max-w-[200px] truncate")} title={r.product_name ?? undefined}>
+                    <td className={adminTd("max-w-[180px] truncate")} title={r.product_name ?? undefined}>
                       {r.product_name ?? "—"}
                     </td>
+                    <td className={adminTd("max-w-[160px] truncate")} title={r.reviewer_label ?? undefined}>
+                      {r.reviewer_label ?? "—"}
+                    </td>
                     <td className={adminTd("tabular-nums")}>{r.rating} / 5</td>
-                    <td className={adminTd("max-w-[240px] truncate")}>{r.title || r.body.slice(0, 48)}</td>
+                    <td className={adminTd("w-[100px]")}>
+                      {(() => {
+                        const items = parseReviewMediaItems(r.media);
+                        if (items.length === 0) {
+                          return <span className="text-muted-foreground">—</span>;
+                        }
+                        const first = items[0]!;
+                        return (
+                          <div className="flex items-center gap-2">
+                            {first.kind === "image" ? (
+                              <img
+                                src={first.url}
+                                alt=""
+                                className="h-10 w-10 rounded border border-border object-cover"
+                              />
+                            ) : (
+                              <span className="text-xs text-muted-foreground" title={first.url}>
+                                Video
+                              </span>
+                            )}
+                            {items.length > 1 ? (
+                              <span className="text-xs text-muted-foreground">+{items.length - 1}</span>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td className={adminTd("max-w-[220px] truncate")}>{r.title || r.body.slice(0, 48)}</td>
                     <td className={adminTd()}>
                       <Badge
                         variant={
@@ -187,6 +337,17 @@ export function ReviewsListPage() {
                             Pending
                           </Button>
                         ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          disabled={busyId === r.id}
+                          onClick={() => setDeleteId(r.id)}
+                          title="Delete review"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>

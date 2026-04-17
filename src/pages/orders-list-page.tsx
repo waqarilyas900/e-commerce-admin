@@ -96,7 +96,7 @@ export function OrdersListPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Orders"
-        description="Checkout orders from your storefront (PKR; amounts stored in paisa). Fulfill and update status as you process each order."
+        description="Orders placed on your storefront in PKR. Fulfill and update status as you process each one."
         actions={
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
             <RefreshCw className="mr-2 h-4 w-4" />

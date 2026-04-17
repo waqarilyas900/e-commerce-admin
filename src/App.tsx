@@ -41,6 +41,8 @@ import { HeroSectionPage } from "@/pages/hero-section-page";
 import { AnnouncementPage } from "@/pages/announcement-page";
 import { HomeSectionsListPage } from "@/pages/home-sections-list-page";
 import { HomeSectionEditPage } from "@/pages/home-section-edit-page";
+import { DeliverySettingsPage } from "@/pages/delivery-settings-page";
+import { HeaderNavMenuPage } from "@/pages/header-nav-menu-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -95,6 +97,8 @@ function AppRoutes() {
           <Route path="/dashboard/announcement" element={<AnnouncementPage />} />
           <Route path="/dashboard/home-sections" element={<HomeSectionsListPage />} />
           <Route path="/dashboard/home-sections/:sectionId" element={<HomeSectionEditPage />} />
+          <Route path="/dashboard/delivery" element={<DeliverySettingsPage />} />
+          <Route path="/dashboard/header-menu" element={<HeaderNavMenuPage />} />
           <Route path="/dashboard/home" element={<Navigate to="/dashboard/hero" replace />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/customers" element={<CustomersListPage />} />

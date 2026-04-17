@@ -15,6 +15,8 @@ import {
   Heart,
   Users,
   Megaphone,
+  Truck,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -49,6 +51,8 @@ export const navGroups: NavGroup[] = [
       { title: "Hero section", url: "/dashboard/hero", icon: LayoutTemplate },
       { title: "Announcement", url: "/dashboard/announcement", icon: Megaphone },
       { title: "Home sections", url: "/dashboard/home-sections", icon: LayoutGrid },
+      { title: "Delivery", url: "/dashboard/delivery", icon: Truck },
+      { title: "Header menu", url: "/dashboard/header-menu", icon: Menu },
     ],
   },
   {
