@@ -15,10 +15,17 @@ const selectStyles: StylesConfig<Opt, true> = {
   }),
   menu: (base) => ({
     ...base,
-    zIndex: 50,
+    /* Above Radix dialog overlay (z-50); must receive hits when body has pointer-events:none */
+    zIndex: 10000,
+    pointerEvents: "auto",
     backgroundColor: "hsl(var(--popover))",
     border: "1px solid hsl(var(--border))",
     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 10000,
+    pointerEvents: "auto",
   }),
   menuList: (base) => ({ ...base, maxHeight: 280 }),
   option: (base, state) => ({
@@ -76,6 +83,8 @@ export function ProductMultiSelect({
       inputId={inputId}
       aria-label={ariaLabel}
       isMulti
+      closeMenuOnSelect={false}
+      blurInputOnSelect={false}
       options={options}
       value={selected}
       onChange={(opts) => {
@@ -87,6 +96,9 @@ export function ProductMultiSelect({
       noOptionsMessage={() => "No products match."}
       styles={selectStyles}
       classNamePrefix="voucher-product-select"
+      menuPlacement="top"
+      menuPosition="fixed"
+      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
     />
   );
 }

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-datepicker/dist/react-datepicker.css";
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
@@ -31,6 +32,10 @@
   --sidebar-accent: 220 14% 94%;
   --sidebar-border: 220 13% 91%;
   --shadow-card: 220 40% 4%;
+  /* Centered dialog motion (see `.admin-dialog-panel` — duration 1–1.5s range) */
+  --admin-dialog-enter-duration: 1.35s;
+  --admin-dialog-exit-duration: 0.42s;
+  --admin-dialog-overlay-in-duration: 0.55s;
 }
 
 .dark {
@@ -113,4 +118,130 @@
 
 .animate-skeleton {
   animation: pulse-skeleton 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Radix Dialog: custom keyframes so `transform` keeps centering (`translate(-50%, …)`). */
+@keyframes admin-dialog-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes admin-dialog-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes admin-dialog-panel-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 3rem)) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes admin-dialog-panel-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 1rem)) scale(0.96);
+  }
+}
+
+.admin-dialog-overlay[data-state="open"] {
+  animation: admin-dialog-overlay-in var(--admin-dialog-overlay-in-duration) ease-out both;
+}
+
+.admin-dialog-overlay[data-state="closed"] {
+  animation: admin-dialog-overlay-out var(--admin-dialog-exit-duration) ease-in forwards;
+}
+
+.admin-dialog-panel[data-state="open"] {
+  animation: admin-dialog-panel-in var(--admin-dialog-enter-duration) cubic-bezier(0.16, 1, 0.3, 1)
+    both;
+}
+
+.admin-dialog-panel[data-state="closed"] {
+  animation: admin-dialog-panel-out var(--admin-dialog-exit-duration) cubic-bezier(0.4, 0, 1, 1)
+    forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-dialog-overlay[data-state="open"],
+  .admin-dialog-overlay[data-state="closed"] {
+    animation-duration: 0.01ms;
+  }
+
+  .admin-dialog-panel[data-state="open"],
+  .admin-dialog-panel[data-state="closed"] {
+    animation: none;
+  }
+
+  .admin-dialog-panel[data-state="open"] {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* react-datepicker — match admin theme (light + dark) */
+.admin-datepicker-popper {
+  z-index: 200;
+}
+.admin-datepicker-popper .react-datepicker {
+  font-family: inherit;
+  @apply rounded-xl border border-border bg-card text-card-foreground shadow-lg;
+}
+.admin-datepicker-popper .react-datepicker__header {
+  @apply rounded-t-xl border-b border-border bg-muted/50 text-foreground;
+}
+.admin-datepicker-popper .react-datepicker__current-month,
+.admin-datepicker-popper .react-datepicker-time__header {
+  @apply text-sm font-semibold text-foreground;
+}
+.admin-datepicker-popper .react-datepicker__day-name {
+  @apply text-xs font-medium text-muted-foreground;
+}
+.admin-datepicker-popper .react-datepicker__day {
+  @apply rounded-md text-sm text-foreground hover:bg-muted;
+}
+.admin-datepicker-popper .react-datepicker__day--selected,
+.admin-datepicker-popper .react-datepicker__day--keyboard-selected {
+  @apply bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground;
+}
+.admin-datepicker-popper .react-datepicker__day--today {
+  @apply font-semibold ring-1 ring-primary/40;
+}
+.admin-datepicker-popper .react-datepicker__day--outside-month {
+  @apply text-muted-foreground/50;
+}
+.admin-datepicker-popper .react-datepicker__navigation-icon::before {
+  @apply border-foreground;
+}
+.admin-datepicker-popper .react-datepicker__time-container {
+  @apply border-l border-border;
+}
+.admin-datepicker-popper .react-datepicker__time-container .react-datepicker__time {
+  @apply bg-card;
+}
+.admin-datepicker-popper .react-datepicker__time-list-item {
+  @apply text-foreground hover:bg-muted;
+}
+.admin-datepicker-popper .react-datepicker__time-list-item--selected {
+  @apply bg-primary font-medium text-primary-foreground hover:bg-primary hover:text-primary-foreground;
+}
+.admin-datepicker-popper .react-datepicker__triangle {
+  display: none;
 }

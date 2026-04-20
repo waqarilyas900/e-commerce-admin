@@ -7,6 +7,7 @@ import { StarRatingInput } from "@/components/dashboard/star-rating-input";
 import { toast } from "sonner";
 import { ProductDescriptionEditor } from "@/components/dashboard/product-description-editor";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -938,18 +939,16 @@ export function ProductEditPage() {
                       key={c.id}
                       className="flex cursor-pointer items-center gap-3 rounded-md py-1 text-sm transition-colors hover:bg-muted/40"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selectedCollectionIds.has(c.id)}
-                        onChange={() => {
+                        onCheckedChange={(checked) => {
                           setSelectedCollectionIds((prev) => {
                             const next = new Set(prev);
-                            if (next.has(c.id)) next.delete(c.id);
-                            else next.add(c.id);
+                            if (checked === true) next.add(c.id);
+                            else next.delete(c.id);
                             return next;
                           });
                         }}
-                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                       />
                       <span>
                         <span className="font-medium">{c.name}</span>{" "}

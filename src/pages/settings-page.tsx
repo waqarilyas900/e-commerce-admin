@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { APP_NAME } from "@/config/brand";
 import {
   fetchStoreSettings,
@@ -267,21 +268,11 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
             <label className="flex cursor-pointer items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input"
-                checked={notifyOrders}
-                onChange={(e) => setNotifyOrders(e.target.checked)}
-              />
+              <Checkbox checked={notifyOrders} onCheckedChange={(c) => setNotifyOrders(c === true)} />
               Order events
             </label>
             <label className="flex cursor-pointer items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input"
-                checked={notifyInventory}
-                onChange={(e) => setNotifyInventory(e.target.checked)}
-              />
+              <Checkbox checked={notifyInventory} onCheckedChange={(c) => setNotifyInventory(c === true)} />
               Low stock warnings
             </label>
           </CardContent>

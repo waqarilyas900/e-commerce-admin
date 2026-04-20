@@ -19,6 +19,8 @@ function randomCode(length = 12): string {
 
 export type VoucherBatchKind = "shared" | "multi";
 
+export type VoucherBatchStatus = "draft" | "active" | "paused" | "archived";
+
 export type VoucherBatchStatsRow = {
   id: string;
   name: string;
@@ -34,6 +36,12 @@ export type VoucherBatchStatsRow = {
   valid_until: string | null;
   created_at: string;
   updated_at: string;
+  status?: VoucherBatchStatus;
+  campaign_purpose: string | null;
+  attribution_source: string | null;
+  code_prefix: string | null;
+  code_random_length: number | null;
+  max_discount_cents: number | null;
   total_codes: number;
   used_count: number;
   available_count: number | null;
@@ -69,6 +77,12 @@ export type VoucherBatchWritePayload = {
   min_order_amount: number;
   valid_from: string | null;
   valid_until: string | null;
+  status?: VoucherBatchStatus;
+  campaign_purpose?: string | null;
+  attribution_source?: string | null;
+  code_prefix?: string | null;
+  code_random_length?: number | null;
+  max_discount_cents?: number | null;
 };
 
 export type InstanceOverridePayload = {
@@ -126,6 +140,12 @@ export async function fetchVoucherBatches(): Promise<VoucherBatchStatsRow[]> {
       product_ids: Array.isArray(row.product_ids) ? (row.product_ids as string[]) : [],
       batch_kind: ((row.batch_kind as string) ?? "multi") as VoucherBatchKind,
       shared_code: (row.shared_code as string | null) ?? null,
+      status: (row.status as VoucherBatchStatsRow["status"]) ?? "active",
+      campaign_purpose: (row.campaign_purpose as string | null | undefined) ?? null,
+      attribution_source: (row.attribution_source as string | null | undefined) ?? null,
+      code_prefix: (row.code_prefix as string | null | undefined) ?? null,
+      code_random_length: (row.code_random_length as number | null | undefined) ?? null,
+      max_discount_cents: (row.max_discount_cents as number | null | undefined) ?? null,
     };
   });
 }
@@ -148,6 +168,12 @@ export async function fetchVoucherBatchStatsById(id: string): Promise<VoucherBat
     product_ids: Array.isArray(r.product_ids) ? (r.product_ids as string[]) : [],
     batch_kind: ((r.batch_kind as string) ?? "multi") as VoucherBatchKind,
     shared_code: (r.shared_code as string | null) ?? null,
+    status: (r.status as VoucherBatchStatsRow["status"]) ?? "active",
+    campaign_purpose: (r.campaign_purpose as string | null | undefined) ?? null,
+    attribution_source: (r.attribution_source as string | null | undefined) ?? null,
+    code_prefix: (r.code_prefix as string | null | undefined) ?? null,
+    code_random_length: (r.code_random_length as number | null | undefined) ?? null,
+    max_discount_cents: (r.max_discount_cents as number | null | undefined) ?? null,
   };
 }
 
@@ -233,8 +259,22 @@ export async function fetchPublicUsersForAssign(limit = 400): Promise<PublicUser
   return (data ?? []) as PublicUserOption[];
 }
 
-async function collectUniqueCodes(needed: number): Promise<string[]> {
+function normalizeCodePrefix(raw: string | null | undefined): string {
+  if (raw == null || raw === "") return "";
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+async function collectUniqueCodes(
+  needed: number,
+  prefixRaw: string | null | undefined,
+  randomLength: number,
+): Promise<string[]> {
   if (!supabase) throw new Error("No client");
+  const prefix = normalizeCodePrefix(prefixRaw);
+  const len = Math.min(32, Math.max(4, Math.floor(randomLength) || 12));
   const result: string[] = [];
   const have = new Set<string>();
   let guard = 0;
@@ -243,7 +283,7 @@ async function collectUniqueCodes(needed: number): Promise<string[]> {
     const want = Math.min(80, needed - result.length + 10);
     const candidates: string[] = [];
     while (candidates.length < want) {
-      const c = randomCode(12);
+      const c = prefix + randomCode(len);
       if (have.has(c)) continue;
       have.add(c);
       candidates.push(c);
@@ -299,6 +339,10 @@ export async function createSharedVoucherBatch(
     min_order_amount: payload.min_order_amount,
     valid_from: payload.valid_from,
     valid_until: payload.valid_until,
+    status: payload.status ?? "active",
+    campaign_purpose: payload.campaign_purpose?.trim() || null,
+    attribution_source: payload.attribution_source?.trim() || null,
+    max_discount_cents: payload.max_discount_cents ?? null,
   };
 
   const { data, error } = await supabase.from("voucher_batches").insert(row).select("id").single();
@@ -340,6 +384,15 @@ export async function createVoucherBatchWithQuantity(
     }
   }
 
+  const meta = {
+    status: payload.status ?? "active",
+    campaign_purpose: payload.campaign_purpose?.trim() || null,
+    attribution_source: payload.attribution_source?.trim() || null,
+    code_prefix: normalizeCodePrefix(payload.code_prefix) || null,
+    code_random_length: payload.code_random_length ?? 12,
+    max_discount_cents: payload.max_discount_cents ?? null,
+  };
+
   const row = deferred
     ? {
         name: payload.name.trim() || "Voucher campaign",
@@ -351,6 +404,7 @@ export async function createVoucherBatchWithQuantity(
         min_order_amount: payload.min_order_amount ?? 0,
         valid_from: null as null,
         valid_until: null as null,
+        ...meta,
       }
     : {
         name: payload.name.trim() || "Voucher campaign",
@@ -362,6 +416,7 @@ export async function createVoucherBatchWithQuantity(
         min_order_amount: payload.min_order_amount,
         valid_from: payload.valid_from!,
         valid_until: payload.valid_until!,
+        ...meta,
       };
 
   const { data: batchRow, error: bErr } = await supabase
@@ -375,7 +430,8 @@ export async function createVoucherBatchWithQuantity(
   const batchId = (batchRow as { id: string }).id;
 
   try {
-    const codes = await collectUniqueCodes(quantity);
+    const rndLen = payload.code_random_length ?? 12;
+    const codes = await collectUniqueCodes(quantity, payload.code_prefix, rndLen);
     const chunkSize = 150;
     for (let i = 0; i < codes.length; i += chunkSize) {
       const slice = codes.slice(i, i + chunkSize);
@@ -389,6 +445,101 @@ export async function createVoucherBatchWithQuantity(
   } catch (e) {
     await supabase.from("voucher_batches").delete().eq("id", batchId);
     return { batchId: "", error: e instanceof Error ? e.message : "Failed to create codes." };
+  }
+
+  return { batchId };
+}
+
+/**
+ * Customer-specific: one unique code in a multi batch, assigned to one customer at creation (not left in the pool).
+ * Requires full campaign discount rules (same as a normal multi batch with quantity 1, but pre-assigned).
+ */
+export async function createSingleCustomerVoucherBatch(
+  payload: VoucherBatchWritePayload,
+  assigneePublicUserId: string,
+): Promise<{ batchId: string; error?: string }> {
+  if (!supabase) {
+    return { batchId: "", error: "Database connection is not configured." };
+  }
+  const uid = assigneePublicUserId.trim();
+  if (!uid) {
+    return { batchId: "", error: "Choose a customer to receive this code." };
+  }
+
+  const deferred = payload.discount_type == null || payload.voucher_amount == null;
+  if (deferred) {
+    return {
+      batchId: "",
+      error: "Single-customer vouchers need full discount and validity rules on this screen.",
+    };
+  }
+  if (payload.discount_type === "percentage" && (payload.voucher_amount! <= 0 || payload.voucher_amount! > 100)) {
+    return { batchId: "", error: "Percentage must be between 1 and 100." };
+  }
+  if (payload.discount_type === "fixed" && (payload.voucher_amount == null || payload.voucher_amount <= 0)) {
+    return { batchId: "", error: "Enter a valid fixed discount amount." };
+  }
+  if (payload.product_scope === "specific" && payload.product_ids.length < 1) {
+    return { batchId: "", error: "Select at least one product, or choose All products." };
+  }
+  if (!payload.valid_from || !payload.valid_until) {
+    return { batchId: "", error: "Valid from and valid until are required." };
+  }
+  if (new Date(payload.valid_until) <= new Date(payload.valid_from)) {
+    return { batchId: "", error: "Valid until must be after valid from." };
+  }
+
+  const meta = {
+    status: payload.status ?? "active",
+    campaign_purpose: payload.campaign_purpose?.trim() || null,
+    attribution_source: payload.attribution_source?.trim() || null,
+    code_prefix: normalizeCodePrefix(payload.code_prefix) || null,
+    code_random_length: payload.code_random_length ?? 12,
+    max_discount_cents: payload.max_discount_cents ?? null,
+  };
+
+  const row = {
+    name: payload.name.trim() || "Single-customer voucher",
+    batch_kind: "multi" as const,
+    discount_type: payload.discount_type!,
+    voucher_amount: payload.voucher_amount!,
+    product_scope: payload.product_scope,
+    product_ids: payload.product_scope === "specific" ? payload.product_ids : [],
+    min_order_amount: payload.min_order_amount,
+    valid_from: payload.valid_from!,
+    valid_until: payload.valid_until!,
+    ...meta,
+  };
+
+  const { data: batchRow, error: bErr } = await supabase
+    .from("voucher_batches")
+    .insert(row)
+    .select("id")
+    .single();
+  if (bErr || !batchRow) {
+    return { batchId: "", error: bErr?.message ?? "Failed to create batch." };
+  }
+  const batchId = (batchRow as { id: string }).id;
+
+  try {
+    const rndLen = payload.code_random_length ?? 12;
+    const codes = await collectUniqueCodes(1, payload.code_prefix, rndLen);
+    const code = codes[0];
+    if (!code) {
+      throw new Error("Could not generate a unique code.");
+    }
+    const { error: iErr } = await supabase.from("voucher_instances").insert({
+      batch_id: batchId,
+      code,
+      assigned_public_user_id: uid,
+    });
+    if (iErr) {
+      await supabase.from("voucher_batches").delete().eq("id", batchId);
+      return { batchId: "", error: iErr.message };
+    }
+  } catch (e) {
+    await supabase.from("voucher_batches").delete().eq("id", batchId);
+    return { batchId: "", error: e instanceof Error ? e.message : "Failed to create assigned code." };
   }
 
   return { batchId };
@@ -447,7 +598,7 @@ export async function updateVoucherBatch(
     }
   }
 
-  const row = deferred
+  const row: Record<string, unknown> = deferred
     ? {
         name: payload.name.trim() || "Voucher campaign",
         discount_type: null as null,
@@ -470,6 +621,23 @@ export async function updateVoucherBatch(
         valid_until: payload.valid_until!,
         updated_at: new Date().toISOString(),
       };
+
+  if (payload.status !== undefined) row.status = payload.status;
+  if (payload.campaign_purpose !== undefined) {
+    row.campaign_purpose = payload.campaign_purpose?.trim() || null;
+  }
+  if (payload.attribution_source !== undefined) {
+    row.attribution_source = payload.attribution_source?.trim() || null;
+  }
+  if (payload.code_prefix !== undefined) {
+    row.code_prefix = normalizeCodePrefix(payload.code_prefix) || null;
+  }
+  if (payload.code_random_length !== undefined) {
+    row.code_random_length = payload.code_random_length;
+  }
+  if (payload.max_discount_cents !== undefined) {
+    row.max_discount_cents = payload.max_discount_cents;
+  }
 
   const { error } = await supabase.from("voucher_batches").update(row).eq("id", batchId);
   return error ? { error: error.message } : {};

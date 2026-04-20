@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Card,
   CardContent,
@@ -213,38 +214,46 @@ export function CollectionEditPage() {
             </div>
             <div className="space-y-3 rounded-lg border border-border/80 bg-muted/15 p-4">
               <p className="text-sm font-medium">How products are included</p>
-              <label className="flex cursor-pointer items-start gap-3 text-sm">
-                <input
-                  type="radio"
-                  name="collection-type"
-                  className="mt-1 h-4 w-4 border-input text-primary"
-                  checked={collectionType === CollectionTypeDb.Manual}
-                  onChange={() => setCollectionType(CollectionTypeDb.Manual)}
-                />
-                <span>
-                  <span className="font-medium">Manual</span>
-                  <span className="block text-muted-foreground">
-                    Choose collections per product on each product&apos;s edit screen. Products appear
-                    here when linked.
+              <RadioGroup
+                value={collectionType}
+                onValueChange={(v) => setCollectionType(v as CollectionTypeDb)}
+                className="gap-4"
+              >
+                <label
+                  htmlFor="c-type-manual"
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2 text-sm transition hover:bg-muted/30 has-[[data-state=checked]]:border-primary/25 has-[[data-state=checked]]:bg-primary/[0.04]"
+                >
+                  <RadioGroupItem
+                    value={CollectionTypeDb.Manual}
+                    id="c-type-manual"
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium">Manual</span>
+                    <span className="block text-muted-foreground">
+                      Choose collections per product on each product&apos;s edit screen. Products appear
+                      here when linked.
+                    </span>
                   </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-3 text-sm">
-                <input
-                  type="radio"
-                  name="collection-type"
-                  className="mt-1 h-4 w-4 border-input text-primary"
-                  checked={collectionType === CollectionTypeDb.TagBased}
-                  onChange={() => setCollectionType(CollectionTypeDb.TagBased)}
-                />
-                <span>
-                  <span className="font-medium">Tag-based</span>
-                  <span className="block text-muted-foreground">
-                    Products are included automatically when they match any of the tags you select
-                    below (OR logic).
+                </label>
+                <label
+                  htmlFor="c-type-tag"
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2 text-sm transition hover:bg-muted/30 has-[[data-state=checked]]:border-primary/25 has-[[data-state=checked]]:bg-primary/[0.04]"
+                >
+                  <RadioGroupItem
+                    value={CollectionTypeDb.TagBased}
+                    id="c-type-tag"
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium">Tag-based</span>
+                    <span className="block text-muted-foreground">
+                      Products are included automatically when they match any of the tags you select
+                      below (OR logic).
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+              </RadioGroup>
             </div>
             {collectionType === CollectionTypeDb.TagBased ? (
               <div className="space-y-2">

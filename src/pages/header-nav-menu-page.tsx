@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { Plus, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -366,13 +367,11 @@ export function HeaderNavMenuPage() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <input
+                <Checkbox
                   id={activeId}
-                  type="checkbox"
-                  className="h-4 w-4 rounded border border-input"
                   checked={form.is_active}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, is_active: e.target.checked }))
+                  onCheckedChange={(c) =>
+                    setForm((f) => ({ ...f, is_active: c === true }))
                   }
                 />
                 <Label htmlFor={activeId} className="font-normal">

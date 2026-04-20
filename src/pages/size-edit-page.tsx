@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -287,12 +288,7 @@ export function SizeEditPage() {
               <p className="text-xs text-muted-foreground">Lower values appear first in dropdowns.</p>
             </div>
             <label className="flex cursor-pointer items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-              />
+              <Checkbox checked={isActive} onCheckedChange={(c) => setIsActive(c === true)} />
               Active (available for new variants)
             </label>
           </CardContent>

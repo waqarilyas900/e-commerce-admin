@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import { Input } from "@/components/ui/input";
@@ -301,12 +302,7 @@ export function QuickAddSizeDialog({
                 <p className="text-xs text-muted-foreground">Lower values appear first in dropdowns.</p>
               </div>
               <label className="flex cursor-pointer items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-input"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                />
+                <Checkbox checked={isActive} onCheckedChange={(c) => setIsActive(c === true)} />
                 Active (available for new variants)
               </label>
             </CardContent>
@@ -542,12 +538,7 @@ export function QuickAddColorDialog({
               </div>
               <div className="flex flex-wrap items-center gap-6">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-input"
-                  />
+                  <Checkbox checked={isActive} onCheckedChange={(c) => setIsActive(c === true)} />
                   Active (show in product color picker)
                 </label>
                 <div className="flex items-center gap-2">

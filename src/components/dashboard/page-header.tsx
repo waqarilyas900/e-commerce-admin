@@ -10,6 +10,8 @@ export type PageHeaderProps = {
   /** Ghost back link above the title (detail / edit flows). */
   backLink?: { to: string; label: string };
   className?: string;
+  /** Use full content width for the description (default caps at ~42rem). */
+  wideDescription?: boolean;
 };
 
 export function PageHeader({
@@ -18,6 +20,7 @@ export function PageHeader({
   actions,
   backLink,
   className,
+  wideDescription,
 }: PageHeaderProps) {
   return (
     <header className={cn("mb-10 space-y-5", className)}>
@@ -40,7 +43,12 @@ export function PageHeader({
             {title}
           </h1>
           {description ? (
-            <p className="max-w-2xl text-[0.9375rem] leading-relaxed text-muted-foreground">
+            <p
+              className={cn(
+                "text-[0.9375rem] leading-relaxed text-muted-foreground",
+                wideDescription ? "max-w-none" : "max-w-2xl",
+              )}
+            >
               {description}
             </p>
           ) : null}

@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
 import { ADMIN_DASHBOARD_MAX_CLASS } from "@/components/dashboard/admin-list-shell";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -297,12 +298,10 @@ export function HeroSectionPage() {
                         />
                       </div>
                       <label className="flex items-center gap-2 pt-8 text-sm">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-input"
+                        <Checkbox
                           checked={row.is_active}
-                          onChange={(e) =>
-                            patchSlideLocal(row.id, { is_active: e.target.checked })
+                          onCheckedChange={(c) =>
+                            patchSlideLocal(row.id, { is_active: c === true })
                           }
                         />
                         Active (shown on storefront)

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -95,11 +96,9 @@ export function AnnouncementBarEditor() {
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="flex items-center gap-2 text-sm font-medium leading-none">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-input"
+            <Checkbox
               checked={announcementEnabled}
-              onChange={(e) => setAnnouncementEnabled(e.target.checked)}
+              onCheckedChange={(c) => setAnnouncementEnabled(c === true)}
             />
             Show announcement bar on storefront
           </label>

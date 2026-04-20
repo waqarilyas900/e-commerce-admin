@@ -78,6 +78,8 @@ export function TagMultiSelect({
       inputId={inputId}
       aria-label={ariaLabel}
       isMulti
+      closeMenuOnSelect={false}
+      blurInputOnSelect={false}
       isDisabled={disabled}
       options={options}
       value={selected}

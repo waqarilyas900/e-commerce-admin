@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -293,12 +294,7 @@ export function ColorEditPage() {
             </div>
             <div className="flex flex-wrap items-center gap-6">
               <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="h-4 w-4 rounded border-input"
-                />
+                <Checkbox checked={isActive} onCheckedChange={(c) => setIsActive(c === true)} />
                 Active (show in product color picker)
               </label>
               <div className="flex items-center gap-2">
