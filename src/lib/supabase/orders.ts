@@ -184,7 +184,7 @@ export async function fetchOrderItemsAdmin(
     logOrders("fetchOrderItemsAdmin", error.message);
     return [];
   }
-  return (data ?? []) as OrderItemRow[];
+  return (data ?? []) as unknown as OrderItemRow[];
 }
 
 export async function fetchOrderStatusHistoryAdmin(
