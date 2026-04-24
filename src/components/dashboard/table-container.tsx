@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- table primitives + small helper fns live with TableContainer */
 import { cn } from "@/lib/utils";
 
 /** Horizontal scroll + rounded shell for data tables inside cards */

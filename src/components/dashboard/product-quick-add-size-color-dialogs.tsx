@@ -99,11 +99,13 @@ export function QuickAddSizeDialog({
   useEffect(() => {
     if (!open) return;
     const maxSort = existingSizes.reduce((m, s) => Math.max(m, s.sort_order), 0);
-    setSortOrder(String(maxSort + 1));
-    setName("");
-    setDisplayName("");
-    setSizeType("text");
-    setIsActive(true);
+    queueMicrotask(() => {
+      setSortOrder(String(maxSort + 1));
+      setName("");
+      setDisplayName("");
+      setSizeType("text");
+      setIsActive(true);
+    });
   }, [open, existingSizes]);
 
   async function onSubmit(e: FormEvent) {
@@ -339,12 +341,14 @@ export function QuickAddColorDialog({
   useEffect(() => {
     if (!open) return;
     const maxSort = existingColors.reduce((m, c) => Math.max(m, c.sort_order), 0);
-    setSortOrder(String(maxSort + 1));
-    setName("");
-    setHex("");
-    setRgb("");
-    setSwatchImageUrl("");
-    setIsActive(true);
+    queueMicrotask(() => {
+      setSortOrder(String(maxSort + 1));
+      setName("");
+      setHex("");
+      setRgb("");
+      setSwatchImageUrl("");
+      setIsActive(true);
+    });
   }, [open, existingColors]);
 
   async function onSwatchFile(e: ChangeEvent<HTMLInputElement>) {
@@ -464,7 +468,7 @@ export function QuickAddColorDialog({
                         className="h-12 w-14 cursor-pointer rounded-md border border-input bg-background p-1 shadow-sm"
                         title="Choose a color — fills hex and RGB"
                       />
-                      <p className="max-w-[12rem] text-xs text-muted-foreground">
+                      <p className="max-w-48 text-xs text-muted-foreground">
                         Choosing a color fills{" "}
                         <span className="font-medium text-foreground">Hex</span> and{" "}
                         <span className="font-medium text-foreground">RGB</span> automatically.

@@ -49,7 +49,9 @@ export function ProductsListPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   return (
@@ -128,7 +130,7 @@ export function ProductsListPage() {
                             const pill = (
                               <Badge
                                 variant="outline"
-                                className="max-w-[11rem] truncate font-normal"
+                                className="max-w-44 truncate font-normal"
                                 title={t.label}
                               >
                                 {t.label}

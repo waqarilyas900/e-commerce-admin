@@ -29,7 +29,7 @@ export function TagEditPage() {
 
   useEffect(() => {
     if (isNew || !tagId || !supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;

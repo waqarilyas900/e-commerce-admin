@@ -89,7 +89,9 @@ export function HeaderNavMenuPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   function openCreate() {

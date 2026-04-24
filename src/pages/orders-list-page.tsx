@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ export function OrdersListPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!supabase) {
       toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
@@ -66,11 +66,13 @@ export function OrdersListPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
 
   useEffect(() => {
-    void load();
-  }, [filter]);
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
 
   const filterButtons = (
     <AdminFilterBar>

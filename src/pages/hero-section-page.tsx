@@ -56,7 +56,9 @@ export function HeroSectionPage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   async function onSaveMission(e: FormEvent) {

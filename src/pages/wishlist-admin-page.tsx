@@ -94,34 +94,40 @@ export function WishlistAdminPage() {
       toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
       );
-      setMetaLoading(false);
-      setTableLoading(false);
+      queueMicrotask(() => {
+        setMetaLoading(false);
+        setTableLoading(false);
+      });
       return;
     }
-    void (async () => {
-      setMetaLoading(true);
-      try {
-        await loadMeta();
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to load wishlist overview.");
-      } finally {
-        setMetaLoading(false);
-      }
-    })();
+    queueMicrotask(() => {
+      void (async () => {
+        setMetaLoading(true);
+        try {
+          await loadMeta();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Failed to load wishlist overview.");
+        } finally {
+          setMetaLoading(false);
+        }
+      })();
+    });
   }, [loadMeta]);
 
   useEffect(() => {
     if (!supabase) return;
-    void (async () => {
-      setTableLoading(true);
-      try {
-        await loadBrowse();
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to load wishlist rows.");
-      } finally {
-        setTableLoading(false);
-      }
-    })();
+    queueMicrotask(() => {
+      void (async () => {
+        setTableLoading(true);
+        try {
+          await loadBrowse();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Failed to load wishlist rows.");
+        } finally {
+          setTableLoading(false);
+        }
+      })();
+    });
   }, [loadBrowse]);
 
   async function loadAll() {

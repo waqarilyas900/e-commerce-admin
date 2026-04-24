@@ -58,7 +58,9 @@ export function CustomersListPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   const filtered = useMemo(() => {

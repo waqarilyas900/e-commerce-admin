@@ -221,7 +221,9 @@ export function ProductDescriptionEditor({
   placeholder = "Describe this product…",
 }: Props) {
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor(
     {
@@ -244,7 +246,7 @@ export function ProductDescriptionEditor({
       editorProps: {
         attributes: {
           class: cn(
-            "tiptap min-h-[12rem] px-3 py-2 text-sm outline-none focus:outline-none",
+            "tiptap min-h-48 px-3 py-2 text-sm outline-none focus:outline-none",
             "[&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5",
             "[&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight",
             "[&_h2]:text-xl [&_h2]:font-semibold",
@@ -260,7 +262,6 @@ export function ProductDescriptionEditor({
         onChangeRef.current(ed.getHTML());
       },
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- TipTap instance is stable; placeholder is read on first mount
     [],
   );
 
@@ -278,7 +279,7 @@ export function ProductDescriptionEditor({
       className="product-description-editor overflow-hidden rounded-md border border-input bg-background"
     >
       <Toolbar editor={editor} />
-      <EditorContent editor={editor} className="max-w-none [&_.tiptap]:min-h-[12rem]" />
+      <EditorContent editor={editor} className="max-w-none [&_.tiptap]:min-h-48" />
     </div>
   );
 }

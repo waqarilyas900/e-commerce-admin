@@ -67,7 +67,9 @@ export function ColorsListPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   return (

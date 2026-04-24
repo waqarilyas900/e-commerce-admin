@@ -52,7 +52,7 @@ export function CollectionEditPage() {
 
   useEffect(() => {
     if (isNew || !collectionId || !supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;
@@ -221,7 +221,7 @@ export function CollectionEditPage() {
               >
                 <label
                   htmlFor="c-type-manual"
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2 text-sm transition hover:bg-muted/30 has-[[data-state=checked]]:border-primary/25 has-[[data-state=checked]]:bg-primary/[0.04]"
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2 text-sm transition hover:bg-muted/30 has-data-[state=checked]:border-primary/25 has-data-[state=checked]:bg-primary/4"
                 >
                   <RadioGroupItem
                     value={CollectionTypeDb.Manual}
@@ -238,7 +238,7 @@ export function CollectionEditPage() {
                 </label>
                 <label
                   htmlFor="c-type-tag"
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2 text-sm transition hover:bg-muted/30 has-[[data-state=checked]]:border-primary/25 has-[[data-state=checked]]:bg-primary/[0.04]"
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2 text-sm transition hover:bg-muted/30 has-data-[state=checked]:border-primary/25 has-data-[state=checked]:bg-primary/4"
                 >
                   <RadioGroupItem
                     value={CollectionTypeDb.TagBased}

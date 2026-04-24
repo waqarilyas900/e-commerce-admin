@@ -232,7 +232,7 @@ export function VoucherEditPage() {
 
   useEffect(() => {
     if (!supabase || isNew || !voucherId) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;
@@ -323,10 +323,10 @@ export function VoucherEditPage() {
 
   useEffect(() => {
     if (isNew && voucherType === "t1") {
-      setDeferBatchRules(false);
+      queueMicrotask(() => setDeferBatchRules(false));
     }
     if (isNew && voucherType === "t3") {
-      setDeferBatchRules(false);
+      queueMicrotask(() => setDeferBatchRules(false));
     }
   }, [isNew, voucherType]);
 
@@ -1076,7 +1076,7 @@ export function VoucherEditPage() {
         <form onSubmit={(e) => void onUpdateBatch(e)} className="w-full max-w-none space-y-6">
           {isShared ? (
             <>
-              <Card className="border-primary/25 bg-primary/[0.04] dark:bg-primary/[0.06]">
+              <Card className="border-primary/25 bg-primary/4 dark:bg-primary/6">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Manage this shared promo — 3 steps</CardTitle>
                   <CardDescription className="text-sm leading-relaxed">
@@ -1521,7 +1521,7 @@ export function VoucherEditPage() {
                   ) : (
                     <div
                       role="note"
-                      className="space-y-3 rounded-lg border border-amber-500/35 bg-amber-500/[0.06] p-4 text-sm dark:bg-amber-500/[0.08]"
+                      className="space-y-3 rounded-lg border border-amber-500/35 bg-amber-500/6 p-4 text-sm dark:bg-amber-500/8"
                     >
                       <p className="font-medium text-foreground">How to assign codes in this mode</p>
                       <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">

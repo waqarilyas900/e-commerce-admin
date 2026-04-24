@@ -26,14 +26,16 @@ export function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    setEmail(user.email ?? "");
-    const meta = user.user_metadata as Record<string, unknown>;
-    const n =
-      typeof meta.full_name === "string"
-        ? meta.full_name
-        : [meta.first_name, meta.last_name].filter(Boolean).join(" ");
-    setFullName(typeof n === "string" ? n : "");
-    setLoading(false);
+    queueMicrotask(() => {
+      setEmail(user.email ?? "");
+      const meta = user.user_metadata as Record<string, unknown>;
+      const n =
+        typeof meta.full_name === "string"
+          ? meta.full_name
+          : [meta.first_name, meta.last_name].filter(Boolean).join(" ");
+      setFullName(typeof n === "string" ? n : "");
+      setLoading(false);
+    });
   }, [user]);
 
   async function onSubmit(e: FormEvent) {

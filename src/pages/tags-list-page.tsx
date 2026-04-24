@@ -44,7 +44,9 @@ export function TagsListPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export function OrderDetailPage() {
   const [nextStatus, setNextStatus] = useState<OrderStatus | "">("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  async function load() {
+  const load = useCallback(async () => {
     if (!orderId || !supabase) {
       toast.error(!supabase ? "Supabase is not configured." : "Missing order id.");
       setLoading(false);
@@ -82,11 +82,13 @@ export function OrderDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [orderId]);
 
   useEffect(() => {
-    void load();
-  }, [orderId]);
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
 
   async function onSaveStatus() {
     if (!orderId || !order || !nextStatus || nextStatus === order.status) {

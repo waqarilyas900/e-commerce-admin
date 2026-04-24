@@ -103,7 +103,7 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
   useEffect(() => {
     if (!open || !supabase) return;
     let cancelled = false;
-    setLoadingPicklists(true);
+    queueMicrotask(() => setLoadingPicklists(true));
     void (async () => {
       const [prows, crows] = await Promise.all([
         fetchProductPicklistAdmin(800),
@@ -121,20 +121,22 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
 
   useEffect(() => {
     if (!open) return;
-    setAuthorMode("registered");
-    setProductId("");
-    setUserId("");
-    setAttributedName("");
-    setAttributedEmail("");
-    setRating(0);
-    setTitle("");
-    setBody("");
-    setStatus("approved");
-    setPendingAttachments((prev) => {
-      prev.forEach((a) => URL.revokeObjectURL(a.previewUrl));
-      return [];
+    queueMicrotask(() => {
+      setAuthorMode("registered");
+      setProductId("");
+      setUserId("");
+      setAttributedName("");
+      setAttributedEmail("");
+      setRating(0);
+      setTitle("");
+      setBody("");
+      setStatus("approved");
+      setPendingAttachments((prev) => {
+        prev.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+        return [];
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
     });
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [open]);
 
   function removePendingAttachment(id: string) {

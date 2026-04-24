@@ -50,7 +50,7 @@ export function HomeSectionEditPage() {
 
   useEffect(() => {
     if (isNew || !sectionId || !supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;

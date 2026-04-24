@@ -42,7 +42,7 @@ export function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     void fetchOrdersAggregatesSince(sinceIso).then((a) => {
       setAgg(a);
       setLoading(false);

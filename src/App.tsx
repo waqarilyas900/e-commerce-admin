@@ -43,6 +43,8 @@ import { HomeSectionsListPage } from "@/pages/home-sections-list-page";
 import { HomeSectionEditPage } from "@/pages/home-section-edit-page";
 import { DeliverySettingsPage } from "@/pages/delivery-settings-page";
 import { HeaderNavMenuPage } from "@/pages/header-nav-menu-page";
+import { ContactInquiriesListPage } from "@/pages/contact-inquiries-list-page";
+import { ContactInquiryDetailPage } from "@/pages/contact-inquiry-detail-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -120,6 +122,8 @@ function AppRoutes() {
           <Route path="/dashboard/orders" element={<OrdersListPage />} />
           <Route path="/dashboard/orders/:orderId" element={<OrderDetailPage />} />
           <Route path="/dashboard/reviews" element={<ReviewsListPage />} />
+          <Route path="/dashboard/contact-inquiries" element={<ContactInquiriesListPage />} />
+          <Route path="/dashboard/contact-inquiries/:inquiryId" element={<ContactInquiryDetailPage />} />
           <Route path="/dashboard/wishlist" element={<WishlistAdminPage />} />
         </Route>
       </Route>

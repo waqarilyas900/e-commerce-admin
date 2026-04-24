@@ -44,7 +44,9 @@ export function CollectionsListPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   return (

@@ -56,7 +56,7 @@ export function DeliverySettingsPage() {
 
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     void fetchStoreSettings().then((row) => {

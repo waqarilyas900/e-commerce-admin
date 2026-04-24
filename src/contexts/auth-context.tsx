@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const client = supabase;
     if (!client) {
-      setIsLoading(false);
+      queueMicrotask(() => setIsLoading(false));
       return;
     }
 

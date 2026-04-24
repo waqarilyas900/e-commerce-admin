@@ -307,7 +307,7 @@ export function ProductEditPage() {
 
   useEffect(() => {
     if (isNew || !productId || !supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;
@@ -742,7 +742,7 @@ export function ProductEditPage() {
 
   if (!supabase) {
     return (
-      <Card className="max-w-lg border-dashed border-amber-500/40 bg-amber-500/[0.06]">
+      <Card className="max-w-lg border-dashed border-amber-500/40 bg-amber-500/6">
         <CardHeader>
           <CardTitle className="text-base">Connection required</CardTitle>
           <CardDescription>
@@ -826,7 +826,7 @@ export function ProductEditPage() {
       {isNew ? (
         <div
           role="note"
-          className="w-full rounded-xl border border-primary/20 bg-primary/[0.06] px-5 py-4 text-sm leading-relaxed text-muted-foreground shadow-sm dark:bg-primary/10"
+          className="w-full rounded-xl border border-primary/20 bg-primary/6 px-5 py-4 text-sm leading-relaxed text-muted-foreground shadow-sm dark:bg-primary/10"
         >
           <span className="font-semibold text-foreground">Parent + sellable SKUs.</span> The parent is
           the listing (name, gallery, description). With no variant rows, you enter one SKU and
@@ -1401,7 +1401,7 @@ export function ProductEditPage() {
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 dark:bg-primary/10 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/4 p-4 dark:bg-primary/10 sm:flex-row sm:flex-wrap sm:items-center">
             <p className="min-w-0 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Catalog shortcuts:</span> create a size or
               color here — it shows up in variant dropdowns on this page right away (no refresh).
@@ -1448,7 +1448,7 @@ export function ProductEditPage() {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="h-10 w-full shrink-0 sm:w-auto sm:min-w-[9.5rem]"
+                        className="h-10 w-full shrink-0 sm:w-auto sm:min-w-38"
                         disabled={generatingSimpleSku}
                         onClick={() => void onGenerateSimpleSku()}
                       >
@@ -1587,7 +1587,7 @@ export function ProductEditPage() {
                           type="button"
                           variant="secondary"
                           size="sm"
-                          className="h-10 w-full shrink-0 sm:w-auto sm:min-w-[9.5rem]"
+                          className="h-10 w-full shrink-0 sm:w-auto sm:min-w-38"
                           disabled={generatingSkuIndex === i}
                           onClick={() => void onGenerateSku(i)}
                         >

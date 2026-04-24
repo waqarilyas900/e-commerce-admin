@@ -50,7 +50,9 @@ export function AnnouncementBarEditor() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   async function onSaveAnnouncement(e: FormEvent) {

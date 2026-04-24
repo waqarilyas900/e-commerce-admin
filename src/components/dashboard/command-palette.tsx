@@ -20,6 +20,7 @@ import {
   Heart,
   Megaphone,
   Truck,
+  Mail,
 } from "lucide-react";
 import { navGroups } from "@/config/navigation";
 import {
@@ -48,6 +49,7 @@ const iconMap = {
   "/dashboard/collections": Layers,
   "/dashboard/vouchers": TicketPercent,
   "/dashboard/reviews": MessageSquare,
+  "/dashboard/contact-inquiries": Mail,
   "/dashboard/wishlist": Heart,
   "/dashboard/settings": Settings,
 } as const;

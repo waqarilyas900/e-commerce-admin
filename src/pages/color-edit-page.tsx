@@ -68,7 +68,7 @@ export function ColorEditPage() {
 
   useEffect(() => {
     if (isNew || !colorId || !supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;
@@ -217,7 +217,7 @@ export function ColorEditPage() {
                       className="h-12 w-14 cursor-pointer rounded-md border border-input bg-background p-1 shadow-sm"
                       title="Choose a color — fills hex and RGB"
                     />
-                    <p className="max-w-[12rem] text-xs text-muted-foreground">
+                    <p className="max-w-48 text-xs text-muted-foreground">
                       Choosing a color fills <span className="font-medium text-foreground">Hex</span>{" "}
                       and <span className="font-medium text-foreground">RGB</span> automatically.
                     </p>

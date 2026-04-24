@@ -81,15 +81,17 @@ export function SettingsPage() {
   const [storeSaved, setStoreSaved] = useState(false);
 
   useEffect(() => {
-    const s = load();
-    setDisplayName(s.displayName);
-    setNotifyOrders(s.notifyOrders);
-    setNotifyInventory(s.notifyInventory);
+    queueMicrotask(() => {
+      const s = load();
+      setDisplayName(s.displayName);
+      setNotifyOrders(s.notifyOrders);
+      setNotifyInventory(s.notifyInventory);
+    });
   }, []);
 
   useEffect(() => {
     if (!supabase) {
-      setStoreLoading(false);
+      queueMicrotask(() => setStoreLoading(false));
       return;
     }
     void fetchStoreSettings().then((row) => {

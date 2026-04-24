@@ -17,6 +17,7 @@ import {
   Megaphone,
   Truck,
   Menu,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -74,6 +75,7 @@ export const navGroups: NavGroup[] = [
       { title: "Customers", url: "/dashboard/customers", icon: Users },
       { title: "Vouchers", url: "/dashboard/vouchers", icon: TicketPercent },
       { title: "Reviews", url: "/dashboard/reviews", icon: MessageSquare },
+      { title: "Contact inquiries", url: "/dashboard/contact-inquiries", icon: Mail },
       { title: "Wishlist", url: "/dashboard/wishlist", icon: Heart },
     ],
   },

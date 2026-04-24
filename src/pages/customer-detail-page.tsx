@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, RefreshCw, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ export function CustomerDetailPage() {
   const [wishlist, setWishlist] = useState<WishlistAdminRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!customerId) {
       setLoading(false);
       return;
@@ -91,11 +91,13 @@ export function CustomerDetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [customerId]);
 
   useEffect(() => {
-    void load();
-  }, [customerId]);
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
 
   useEffect(() => {
     if (!customerId) {
@@ -150,7 +152,7 @@ export function CustomerDetailPage() {
             <Card
               className={cn(
                 ADMIN_LIST_CARD_CLASS,
-                "border-l-4 border-l-primary/35 bg-gradient-to-br from-primary/[0.04] to-transparent lg:col-span-2 dark:from-primary/10",
+                "border-l-4 border-l-primary/35 bg-linear-to-br from-primary/4 to-transparent lg:col-span-2 dark:from-primary/10",
               )}
             >
               <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>

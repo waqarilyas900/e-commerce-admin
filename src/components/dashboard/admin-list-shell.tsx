@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- shared layout constants + re-exported table primitives */
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,7 @@ export function ReviewsListPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!supabase) {
       toast.error(
         "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
@@ -71,13 +71,13 @@ export function ReviewsListPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  const ratingFilterKey = ratingFilter.slice().sort((a, b) => a - b).join(",");
+  }, [filter, ratingFilter]);
 
   useEffect(() => {
-    void load();
-  }, [filter, ratingFilterKey]);
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
 
   function toggleRatingStar(n: number) {
     setRatingFilter((prev) => {

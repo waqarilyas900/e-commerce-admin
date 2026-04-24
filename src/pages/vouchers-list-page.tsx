@@ -155,7 +155,9 @@ export function VouchersListPage() {
   }
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, []);
 
   return (

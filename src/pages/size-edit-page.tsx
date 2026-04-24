@@ -61,7 +61,7 @@ export function SizeEditPage() {
 
   useEffect(() => {
     if (isNew || !sizeId || !supabase) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     let cancelled = false;
