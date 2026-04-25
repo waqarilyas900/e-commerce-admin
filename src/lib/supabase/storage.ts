@@ -7,6 +7,7 @@ const COLLECTION_HERO_PREFIX = "collections/hero";
 const HOME_HERO_PREFIX = "marketing/home-hero";
 const PRODUCT_MEDIA_PREFIX = "products/media";
 const COLOR_SWATCH_PREFIX = "colors/swatches";
+const FAVICON_PREFIX = "branding/favicons";
 
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const VIDEO_MAX_BYTES = 80 * 1024 * 1024;
@@ -175,6 +176,38 @@ export async function uploadColorSwatch(
   }
   const ext = extFromFileName(file.name) ?? extFromMime(file.type);
   const path = `${COLOR_SWATCH_PREFIX}/${crypto.randomUUID()}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from(ECOMMERCE_STORAGE_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+  if (upErr) {
+    return { error: upErr.message };
+  }
+  const { data } = supabase.storage.from(ECOMMERCE_STORAGE_BUCKET).getPublicUrl(path);
+  return { publicUrl: data.publicUrl };
+}
+
+const FAVICON_MAX_BYTES = 1024 * 1024;
+
+/** Upload favicon image to the public e-commerce bucket for metadata/icons usage. */
+export async function uploadFaviconImage(
+  file: File,
+): Promise<{ publicUrl: string } | { error: string }> {
+  if (!supabase) {
+    return { error: "Database connection is not configured." };
+  }
+  if (!ALLOWED_IMAGE.has(file.type)) {
+    return { error: "Use a PNG, SVG, JPG, WebP, or GIF image for favicon." };
+  }
+  if (file.size > FAVICON_MAX_BYTES) {
+    return { error: "Favicon image must be 1 MB or smaller." };
+  }
+  const ext = extFromFileName(file.name) ?? extFromMime(file.type);
+  const path = `${FAVICON_PREFIX}/${crypto.randomUUID()}.${ext}`;
+
   const { error: upErr } = await supabase.storage
     .from(ECOMMERCE_STORAGE_BUCKET)
     .upload(path, file, {

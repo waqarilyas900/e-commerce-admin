@@ -23,6 +23,7 @@ import {
   Mail,
   Newspaper,
   Send,
+  Scale,
 } from "lucide-react";
 import { navGroups } from "@/config/navigation";
 import {
@@ -41,6 +42,7 @@ const iconMap = {
   "/dashboard/announcement": Megaphone,
   "/dashboard/home-sections": LayoutGrid,
   "/dashboard/delivery": Truck,
+  "/dashboard/policies": Scale,
   "/dashboard/analytics": LineChart,
   "/dashboard/products": Package,
   "/dashboard/orders": ClipboardList,
