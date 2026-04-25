@@ -128,8 +128,13 @@ export function SettingsPage() {
 
   async function onSaveStore(e: FormEvent) {
     e.preventDefault();
+    const trimmedName = storeName.trim();
+    if (!trimmedName) {
+      toast.error("Store name is required — it powers the storefront and emails.");
+      return;
+    }
     const res = await updateStoreSettings({
-      store_name: storeName.trim() || "Store",
+      store_name: trimmedName,
       site_title: siteTitle.trim(),
       site_description: siteDescription.trim(),
       support_email: supportEmail.trim(),
@@ -173,7 +178,13 @@ export function SettingsPage() {
                     value={storeName}
                     onChange={(e) => setStoreName(e.target.value)}
                     autoComplete="organization"
+                    required
+                    placeholder="e.g. Outflint"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Required. Shown in the header, checkout, and transactional email subjects — stored only in the
+                    database.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="site-title">Site title (SEO)</Label>
