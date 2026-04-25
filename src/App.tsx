@@ -48,6 +48,8 @@ import { ContactInquiryDetailPage } from "@/pages/contact-inquiry-detail-page";
 import { NewsletterSubscriptionsListPage } from "@/pages/newsletter-subscriptions-list-page";
 import { NewsletterSendPage } from "@/pages/newsletter-send-page";
 import { NewsletterCampaignDetailPage } from "@/pages/newsletter-campaign-detail-page";
+import { PoliciesListPage } from "@/pages/policies-list-page";
+import { PolicyEditPage } from "@/pages/policy-edit-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -104,6 +106,9 @@ function AppRoutes() {
           <Route path="/dashboard/home-sections/:sectionId" element={<HomeSectionEditPage />} />
           <Route path="/dashboard/delivery" element={<DeliverySettingsPage />} />
           <Route path="/dashboard/header-menu" element={<HeaderNavMenuPage />} />
+          <Route path="/dashboard/policies" element={<PoliciesListPage />} />
+          <Route path="/dashboard/policies/new" element={<PolicyEditPage />} />
+          <Route path="/dashboard/policies/:policyId" element={<PolicyEditPage />} />
           <Route path="/dashboard/home" element={<Navigate to="/dashboard/hero" replace />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/customers" element={<CustomersListPage />} />

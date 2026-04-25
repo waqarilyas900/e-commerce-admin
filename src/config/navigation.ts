@@ -20,6 +20,7 @@ import {
   Mail,
   Newspaper,
   Send,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,7 @@ export const navGroups: NavGroup[] = [
       { title: "Home sections", url: "/dashboard/home-sections", icon: LayoutGrid },
       { title: "Delivery", url: "/dashboard/delivery", icon: Truck },
       { title: "Header menu", url: "/dashboard/header-menu", icon: Menu },
+      { title: "Footer items", url: "/dashboard/policies", icon: Scale },
     ],
   },
   {
