@@ -21,6 +21,8 @@ import {
   Megaphone,
   Truck,
   Mail,
+  Newspaper,
+  Send,
 } from "lucide-react";
 import { navGroups } from "@/config/navigation";
 import {
@@ -50,6 +52,8 @@ const iconMap = {
   "/dashboard/vouchers": TicketPercent,
   "/dashboard/reviews": MessageSquare,
   "/dashboard/contact-inquiries": Mail,
+  "/dashboard/newsletter": Newspaper,
+  "/dashboard/newsletter/send": Send,
   "/dashboard/wishlist": Heart,
   "/dashboard/settings": Settings,
 } as const;

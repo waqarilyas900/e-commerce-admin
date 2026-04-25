@@ -45,6 +45,9 @@ import { DeliverySettingsPage } from "@/pages/delivery-settings-page";
 import { HeaderNavMenuPage } from "@/pages/header-nav-menu-page";
 import { ContactInquiriesListPage } from "@/pages/contact-inquiries-list-page";
 import { ContactInquiryDetailPage } from "@/pages/contact-inquiry-detail-page";
+import { NewsletterSubscriptionsListPage } from "@/pages/newsletter-subscriptions-list-page";
+import { NewsletterSendPage } from "@/pages/newsletter-send-page";
+import { NewsletterCampaignDetailPage } from "@/pages/newsletter-campaign-detail-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -124,6 +127,9 @@ function AppRoutes() {
           <Route path="/dashboard/reviews" element={<ReviewsListPage />} />
           <Route path="/dashboard/contact-inquiries" element={<ContactInquiriesListPage />} />
           <Route path="/dashboard/contact-inquiries/:inquiryId" element={<ContactInquiryDetailPage />} />
+          <Route path="/dashboard/newsletter" element={<NewsletterSubscriptionsListPage />} />
+          <Route path="/dashboard/newsletter/send" element={<NewsletterSendPage />} />
+          <Route path="/dashboard/newsletter/campaigns/:campaignId" element={<NewsletterCampaignDetailPage />} />
           <Route path="/dashboard/wishlist" element={<WishlistAdminPage />} />
         </Route>
       </Route>

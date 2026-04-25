@@ -18,6 +18,8 @@ import {
   Truck,
   Menu,
   Mail,
+  Newspaper,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 
@@ -76,6 +78,8 @@ export const navGroups: NavGroup[] = [
       { title: "Vouchers", url: "/dashboard/vouchers", icon: TicketPercent },
       { title: "Reviews", url: "/dashboard/reviews", icon: MessageSquare },
       { title: "Contact inquiries", url: "/dashboard/contact-inquiries", icon: Mail },
+      { title: "Newsletter", url: "/dashboard/newsletter", icon: Newspaper },
+      { title: "Newsletter send", url: "/dashboard/newsletter/send", icon: Send },
       { title: "Wishlist", url: "/dashboard/wishlist", icon: Heart },
     ],
   },
