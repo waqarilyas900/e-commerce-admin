@@ -13,7 +13,6 @@ export type AdminStandardDialogContentProps = Omit<
 > & {
   title: string;
   subtitle?: React.ReactNode;
-  /** Scrollable body; omit for confirm-only dialogs. */
   children?: React.ReactNode;
   /** Typically `<DialogFooter>…</DialogFooter>` with action buttons only. */
   footer: React.ReactNode;
