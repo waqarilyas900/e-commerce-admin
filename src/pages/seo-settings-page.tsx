@@ -43,11 +43,13 @@ import {
   fetchSeoSocialProfiles,
   fetchSeoVerifications,
   insertSeoSocialProfile,
+  normalizeSocialUrl,
   updateSeoAnalytics,
   updateSeoSite,
   updateSeoSocialProfile,
   updateSeoVerifications,
   deleteSeoSocialProfile,
+  validateSocialProfile,
   type SeoSiteRow,
   type SeoSocialProfileRow,
   type SeoAnalyticsRow,
@@ -609,10 +611,20 @@ function DefaultOgImageCard() {
 // Social profiles (variable list)
 // ---------------------------------------------------------------------------
 
+/**
+ * IDs that start with this prefix are unsaved drafts created locally — they
+ * never hit Postgres until the admin clicks Save, which means clicking
+ * "Add profile" no longer triggers a check-constraint violation on the empty
+ * URL row.
+ */
+const DRAFT_ID_PREFIX = "draft-";
+const isDraft = (id: string) => id.startsWith(DRAFT_ID_PREFIX);
+
 function SocialProfilesCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<SeoSocialProfileRow[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const dirty = useRef<Set<string>>(new Set());
 
@@ -632,10 +644,29 @@ function SocialProfilesCard() {
   function update(id: string, patch: Partial<SeoSocialProfileRow>) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     dirty.current.add(id);
+    // Clear any stale validation message on edit so the UI feels responsive.
+    setErrors((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
-  async function onAdd() {
-    const newRow: Omit<SeoSocialProfileRow, "id"> = {
+  function onUrlBlur(id: string) {
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, url: normalizeSocialUrl(r.url, r.platform) } : r)),
+    );
+  }
+
+  function onAdd() {
+    const draftId = `${DRAFT_ID_PREFIX}${
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }`;
+    const newRow: SeoSocialProfileRow = {
+      id: draftId,
       platform: "facebook",
       url: "",
       handle: "",
@@ -643,15 +674,23 @@ function SocialProfilesCard() {
       sort_order: rows.length,
       is_active: true,
     };
-    const res = await insertSeoSocialProfile(newRow);
-    if (!res.ok || !res.id) {
-      toast.error(res.error ?? "Could not add profile.");
-      return;
-    }
-    setRows((prev) => [...prev, { id: res.id!, ...newRow }]);
+    setRows((prev) => [...prev, newRow]);
+    dirty.current.add(draftId);
   }
 
   async function onRemove(id: string) {
+    // Drafts only live in local state — drop them without hitting the server.
+    if (isDraft(id)) {
+      dirty.current.delete(id);
+      setErrors((prev) => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      return;
+    }
     if (!window.confirm("Remove this social profile?")) return;
     const res = await deleteSeoSocialProfile(id);
     if (!res.ok) {
@@ -664,26 +703,69 @@ function SocialProfilesCard() {
   }
 
   async function onSave() {
+    // Pre-flight validation across every dirty row so we never partially save.
+    const ids = Array.from(dirty.current);
+    const next: Record<string, string> = {};
+    const normalized: Record<string, SeoSocialProfileRow> = {};
+    for (const id of ids) {
+      const r = rows.find((x) => x.id === id);
+      if (!r) continue;
+      const url = normalizeSocialUrl(r.url, r.platform);
+      const handle = r.handle.trim();
+      const reason = validateSocialProfile({ platform: r.platform, url });
+      if (reason) next[id] = reason;
+      normalized[id] = { ...r, url, handle };
+    }
+    if (Object.keys(next).length > 0) {
+      setErrors(next);
+      // Reflect normalized values (e.g. auto-https) so the user sees what we'll send.
+      setRows((prev) => prev.map((r) => normalized[r.id] ?? r));
+      toast.error("Fix the highlighted fields before saving.");
+      return;
+    }
+
     setSaving(true);
     try {
-      const ids = Array.from(dirty.current);
       for (const id of ids) {
-        const r = rows.find((x) => x.id === id);
+        const r = normalized[id];
         if (!r) continue;
-        const res = await updateSeoSocialProfile(id, {
-          platform: r.platform,
-          url: r.url.trim(),
-          handle: r.handle.trim(),
-          is_primary: r.is_primary,
-          sort_order: r.sort_order,
-          is_active: r.is_active,
-        });
-        if (!res.ok) {
-          toast.error(`Row ${r.platform || id}: ${res.error ?? "save failed"}.`);
-          return;
+        if (isDraft(id)) {
+          const res = await insertSeoSocialProfile({
+            platform: r.platform,
+            url: r.url,
+            handle: r.handle,
+            is_primary: r.is_primary,
+            sort_order: r.sort_order,
+            is_active: r.is_active,
+          });
+          if (!res.ok || !res.id) {
+            setErrors((prev) => ({ ...prev, [id]: res.error ?? "Insert failed." }));
+            toast.error(`${r.platform}: ${res.error ?? "insert failed"}.`);
+            return;
+          }
+          const newId = res.id;
+          setRows((prev) =>
+            prev.map((row) => (row.id === id ? { ...row, id: newId, url: r.url, handle: r.handle } : row)),
+          );
+          dirty.current.delete(id);
+        } else {
+          const res = await updateSeoSocialProfile(id, {
+            platform: r.platform,
+            url: r.url,
+            handle: r.handle,
+            is_primary: r.is_primary,
+            sort_order: r.sort_order,
+            is_active: r.is_active,
+          });
+          if (!res.ok) {
+            setErrors((prev) => ({ ...prev, [id]: res.error ?? "Save failed." }));
+            toast.error(`${r.platform || id}: ${res.error ?? "save failed"}.`);
+            return;
+          }
+          dirty.current.delete(id);
         }
       }
-      dirty.current.clear();
+      setErrors({});
       toast.success("Social profiles saved.");
       void revalidateStorefront({ all: true });
     } finally {
@@ -735,12 +817,17 @@ function SocialProfilesCard() {
                       <Input
                         value={r.url}
                         onChange={(e) => update(r.id, { url: e.target.value })}
+                        onBlur={() => onUrlBlur(r.id)}
+                        aria-invalid={Boolean(errors[r.id])}
                         placeholder={
                           r.platform === "facebook_app"
                             ? "1234567890"
                             : "https://example.com/your-handle"
                         }
                       />
+                      {errors[r.id] ? (
+                        <p className="text-destructive text-xs">{errors[r.id]}</p>
+                      ) : null}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Handle (optional)</Label>
