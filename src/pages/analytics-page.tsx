@@ -36,7 +36,7 @@ export function AnalyticsPage() {
   }, [range]);
 
   useEffect(() => {
-    void fetchStoreSettings().then((s) => {
+    void fetchStoreSettings().then(({ row: s }) => {
       if (s?.default_currency) setCurrency(s.default_currency);
     });
   }, []);

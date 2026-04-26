@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ReviewComposeAdminDialog } from "@/components/dashboard/review-compose-admin-dialog";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -52,9 +53,7 @@ export function ReviewsListPage() {
 
   const load = useCallback(async () => {
     if (!supabase) {
-      toast.error(
-        "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
-      );
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       setLoading(false);
       return;
     }
@@ -183,16 +182,10 @@ export function ReviewsListPage() {
         title="Reviews"
         description="Moderate storefront reviews, delete spam, or add a review attributed to a customer account. Approved reviews show as Verified buyer on the PDP."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => setComposeOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add review as customer
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
+          <Button type="button" size="sm" onClick={() => setComposeOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add review as customer
+          </Button>
         }
       />
 

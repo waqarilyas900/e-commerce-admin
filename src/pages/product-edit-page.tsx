@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   Card,
   CardContent,
@@ -54,6 +55,9 @@ import { uploadProductMedia } from "@/lib/supabase/storage";
 import { TagMultiSelect } from "@/components/dashboard/tag-multi-select";
 import { collectionIsTagBased } from "@/lib/catalog/collection-type";
 import { supabase } from "@/lib/supabase/client";
+import { SeoFieldsSection } from "@/components/dashboard/seo-fields-section";
+import { ProductShoppingAttributesSection } from "@/components/dashboard/product-shopping-attributes-section";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 import {
   collectOptionKeysFromVariants,
   mergeVariantKeysIntoSchema,
@@ -250,6 +254,7 @@ export function ProductEditPage() {
   const [quickColorOpen, setQuickColorOpen] = useState(false);
 
   const [name, setName] = useState("");
+  const [loadedSlug, setLoadedSlug] = useState<string>("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"draft" | "active">("draft");
@@ -327,6 +332,7 @@ export function ProductEditPage() {
 
       const { product, variants: vv, collectionIds, tagIds, assets: dbAssets } = res;
       setName(product.name);
+      setLoadedSlug(product.slug ?? "");
       setShortDescription(product.short_description);
       setDescription(product.description);
       setStatus(product.status);
@@ -446,7 +452,7 @@ export function ProductEditPage() {
     if (!productId || isNew || !supabase) return;
     const res = await fetchProductWithVariants(productId);
     if (!res) {
-      toast.error("Could not reload product.");
+      toast.error("Could not load the latest product details.");
       return;
     }
     const keysFromDb = collectOptionKeysFromVariants(
@@ -455,7 +461,7 @@ export function ProductEditPage() {
     setVariantOptionSchema((prev) =>
       mergeVariantKeysIntoSchema(prev, keysFromDb),
     );
-    toast.success("Variant keys refreshed from the database. Save to persist layout changes.");
+    toast.success("Variant fields updated from the saved product. Save when you are ready to keep layout changes.");
   }
 
   async function onAssetFile(key: string, e: ChangeEvent<HTMLInputElement>) {
@@ -535,7 +541,7 @@ export function ProductEditPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       return;
     }
 
@@ -623,7 +629,7 @@ export function ProductEditPage() {
         if (v.sizeId) {
           const sizeLabel = sizes.find((s) => s.id === v.sizeId)?.display_name;
           if (!sizeLabel) {
-            toast.error("Invalid size on a variant — refresh and pick a size again.");
+            toast.error("Invalid size on a variant — choose a valid size again.");
             return;
           }
           option_values.size = sizeLabel;
@@ -633,7 +639,7 @@ export function ProductEditPage() {
         if (v.colorId) {
           const colorRow = colors.find((c) => c.id === v.colorId);
           if (!colorRow) {
-            toast.error("Invalid color on a variant — refresh and pick a color again.");
+            toast.error("Invalid color on a variant — choose a valid color again.");
             return;
           }
           option_values.color = colorRow.name;
@@ -726,6 +732,9 @@ export function ProductEditPage() {
     toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/products/${result.id}`, { replace: true });
+    } else {
+      const slugForRevalidate = loadedSlug || payload.slug;
+      if (slugForRevalidate) void revalidateStorefront({ productSlug: slugForRevalidate });
     }
   }
 
@@ -745,11 +754,7 @@ export function ProductEditPage() {
       <Card className="max-w-lg border-dashed border-amber-500/40 bg-amber-500/6">
         <CardHeader>
           <CardTitle className="text-base">Connection required</CardTitle>
-          <CardDescription>
-            Set <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_SUPABASE_URL</code> and{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_SUPABASE_ANON_KEY</code> in{" "}
-            <span className="font-mono text-xs">.env</span>, then restart the dev server.
-          </CardDescription>
+          <CardDescription>{ADMIN_MSG_CATALOG_UNAVAILABLE}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -1140,7 +1145,7 @@ export function ProductEditPage() {
                   size="sm"
                   onClick={() => void onRefreshVariantKeysFromDb()}
                 >
-                  Refresh keys from database
+                  Sync from saved product
                 </Button>
               ) : null}
             </div>
@@ -1150,8 +1155,8 @@ export function ProductEditPage() {
               your matrix uses them, without removing rows you added manually.{" "}
               {!isNew ? (
                 <>
-                  <span className="font-medium text-foreground">Refresh from database</span> reads live{" "}
-                  <code className="text-[0.75rem]">option_values</code> (e.g. after seed/import).
+                  <span className="font-medium text-foreground">Sync from saved product</span> pulls the latest{" "}
+                  <code className="text-[0.75rem]">option_values</code> from what is already stored for this product.
                 </>
               ) : null}
             </p>
@@ -1404,7 +1409,7 @@ export function ProductEditPage() {
           <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/4 p-4 dark:bg-primary/10 sm:flex-row sm:flex-wrap sm:items-center">
             <p className="min-w-0 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Catalog shortcuts:</span> create a size or
-              color here — it shows up in variant dropdowns on this page right away (no refresh).
+              color here — it appears in variant dropdowns on this page immediately.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1599,8 +1604,8 @@ export function ProductEditPage() {
                         <span className="font-mono text-[0.7rem]">
                           {prefixFromStoreName(storeDisplayName)}-###-####
                         </span>{" "}
-                        (store prefix from “{storeDisplayName}”, then numeric segments; unique in the
-                        database).
+                        (store prefix from “{storeDisplayName}”, then numeric segments; must be unique across
+                        your store).
                       </p>
                     </div>
                   </div>
@@ -1752,6 +1757,20 @@ export function ProductEditPage() {
           </div>
         </div>
       </form>
+
+      {!isNew && productId ? (
+        <div className="mt-8 space-y-6">
+          <ProductShoppingAttributesSection
+            productId={productId}
+            productSlug={loadedSlug}
+          />
+          <SeoFieldsSection
+            subjectType="product"
+            subjectId={productId}
+            revalidate={loadedSlug ? { productSlug: loadedSlug } : null}
+          />
+        </div>
+      ) : null}
     </div>
     <QuickAddSizeDialog
       open={quickSizeOpen}

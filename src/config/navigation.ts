@@ -1,3 +1,4 @@
+import { FOOTER_DASHBOARD_BASE } from "@/config/footer-dashboard";
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -21,6 +22,7 @@ import {
   Newspaper,
   Send,
   Scale,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,7 +59,7 @@ export const navGroups: NavGroup[] = [
       { title: "Home sections", url: "/dashboard/home-sections", icon: LayoutGrid },
       { title: "Delivery", url: "/dashboard/delivery", icon: Truck },
       { title: "Header menu", url: "/dashboard/header-menu", icon: Menu },
-      { title: "Footer items", url: "/dashboard/policies", icon: Scale },
+      { title: "Footer", url: FOOTER_DASHBOARD_BASE, icon: Scale },
     ],
   },
   {
@@ -88,7 +90,10 @@ export const navGroups: NavGroup[] = [
   {
     id: "system",
     label: "Workspace",
-    items: [{ title: "Settings", url: "/dashboard/settings", icon: Settings }],
+    items: [
+      { title: "SEO", url: "/dashboard/seo", icon: Search },
+      { title: "Settings", url: "/dashboard/settings", icon: Settings },
+    ],
   },
 ];
 

@@ -25,6 +25,7 @@ import {
   Send,
   Scale,
 } from "lucide-react";
+import { FOOTER_DASHBOARD_BASE } from "@/config/footer-dashboard";
 import { navGroups } from "@/config/navigation";
 import {
   CommandDialog,
@@ -42,7 +43,7 @@ const iconMap = {
   "/dashboard/announcement": Megaphone,
   "/dashboard/home-sections": LayoutGrid,
   "/dashboard/delivery": Truck,
-  "/dashboard/policies": Scale,
+  [FOOTER_DASHBOARD_BASE]: Scale,
   "/dashboard/analytics": LineChart,
   "/dashboard/products": Package,
   "/dashboard/orders": ClipboardList,

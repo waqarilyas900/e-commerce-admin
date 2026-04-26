@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
 
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 export type HomeHeroSlideRow = {
   id: string;
   sort_order: number;
@@ -29,7 +30,7 @@ export async function fetchHomePageSettings(): Promise<{
   error?: string;
 }> {
   if (!supabase) {
-    return { data: null, error: "Database connection is not configured." };
+    return { data: null, error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { data, error } = await supabase
     .from("home_page_settings")
@@ -91,7 +92,7 @@ export async function saveMissionParagraph(
   mission_paragraph: string,
 ): Promise<{ error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { error } = await supabase
     .from("home_page_settings")
@@ -129,7 +130,7 @@ export async function saveAnnouncementBar(payload: {
   announcement_rotation_sec: number;
 }): Promise<{ error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const bg = normalizeHex(payload.announcement_bar_bg, "#1c1d1d");
   const fg = normalizeHex(payload.announcement_bar_fg, "#ffffff");
@@ -158,7 +159,7 @@ export async function fetchHomeHeroSlidesAdmin(): Promise<{
   error?: string;
 }> {
   if (!supabase) {
-    return { rows: [], error: "Database connection is not configured." };
+    return { rows: [], error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { data, error } = await supabase
     .from("home_hero_slides")
@@ -178,7 +179,7 @@ export async function insertHomeHeroSlide(initial: {
   is_active: boolean;
 }): Promise<{ id?: string; error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -202,7 +203,7 @@ export async function updateHomeHeroSlide(
   >,
 ): Promise<{ error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { error } = await supabase
     .from("home_hero_slides")
@@ -219,7 +220,7 @@ export async function updateHomeHeroSlide(
 
 export async function deleteHomeHeroSlide(id: string): Promise<{ error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { error } = await supabase.from("home_hero_slides").delete().eq("id", id);
   if (error) {

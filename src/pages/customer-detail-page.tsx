@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, RefreshCw, User } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -125,18 +125,12 @@ export function CustomerDetailPage() {
         title={customer ? displayName(customer) : "Customer"}
         description="Profile, orders, reviews, wishlist saves, and vouchers for this account."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" asChild>
-              <Link to="/dashboard/customers">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                All customers
-              </Link>
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
+          <Button type="button" variant="outline" size="sm" asChild>
+            <Link to="/dashboard/customers">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              All customers
+            </Link>
+          </Button>
         }
       />
 

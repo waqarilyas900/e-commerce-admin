@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  ADMIN_MSG_CATALOG_UNAVAILABLE,
+  ADMIN_MSG_STOREFRONT_URL_MISSING,
+} from "@/lib/admin-user-messages";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -21,15 +25,18 @@ import {
   updatePolicyPage,
 } from "@/lib/supabase/policy-pages-admin";
 import { supabase } from "@/lib/supabase/client";
+import { FOOTER_DASHBOARD_BASE } from "@/config/footer-dashboard";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
+import { SeoFieldsSection } from "@/components/dashboard/seo-fields-section";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-function storefrontOrigin(): string {
+function storefrontPublicBaseUrl(): string | null {
   const raw = import.meta.env.VITE_STOREFRONT_ORIGIN?.trim();
-  if (raw) return raw.replace(/\/$/, "");
-  return "http://localhost:3000";
+  if (!raw) return null;
+  return raw.replace(/\/$/, "");
 }
 
 export function PolicyEditPage() {
@@ -47,10 +54,10 @@ export function PolicyEditPage() {
   const [sortOrder, setSortOrder] = useState("0");
   const [html, setHtml] = useState("<p></p>");
 
-  const origin = storefrontOrigin();
+  const publicBase = storefrontPublicBaseUrl();
   const previewUrl =
-    slug.trim() && SLUG_RE.test(slug.trim())
-      ? `${origin}/${encodeURIComponent(slug.trim().toLowerCase())}`
+    publicBase && slug.trim() && SLUG_RE.test(slug.trim())
+      ? `${publicBase}/${encodeURIComponent(slug.trim().toLowerCase())}`
       : null;
 
   useEffect(() => {
@@ -66,7 +73,7 @@ export function PolicyEditPage() {
       if (!row) {
         toast.error("Footer item not found.");
         setLoading(false);
-        navigate("/dashboard/policies", { replace: true });
+        navigate(FOOTER_DASHBOARD_BASE, { replace: true });
         return;
       }
       setSlug(row.slug);
@@ -83,7 +90,7 @@ export function PolicyEditPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       return;
     }
 
@@ -118,7 +125,7 @@ export function PolicyEditPage() {
           return;
         }
         toast.success("Footer item created.");
-        navigate(`/dashboard/policies/${res.id}`, { replace: true });
+        navigate(`${FOOTER_DASHBOARD_BASE}/${res.id}`, { replace: true });
         return;
       }
       if (!policyId) return;
@@ -133,6 +140,7 @@ export function PolicyEditPage() {
         return;
       }
       toast.success("Footer item saved.");
+      void revalidateStorefront({ policySlug: slugNorm });
     } finally {
       setSaving(false);
     }
@@ -148,7 +156,7 @@ export function PolicyEditPage() {
         return;
       }
       toast.success("Footer item deleted.");
-      navigate("/dashboard/policies", { replace: true });
+      navigate(FOOTER_DASHBOARD_BASE, { replace: true });
     } finally {
       setDeleting(false);
       setDeleteOpen(false);
@@ -167,13 +175,13 @@ export function PolicyEditPage() {
     <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
       <PageHeader
         title={isNew ? "New footer item" : "Edit footer item"}
-        description="This page content opens on the storefront when customers click the footer item. Slug becomes /your-slug."
+        description="Customers open this page from its footer link. The web address uses your public store site and this item’s slug (for example /privacy-policy)."
         actions={
           previewUrl ? (
             <Button variant="outline" size="sm" asChild>
               <a href={previewUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" />
-                View on storefront
+                Open on your store
               </a>
             </Button>
           ) : null
@@ -209,24 +217,23 @@ export function PolicyEditPage() {
                 spellCheck={false}
               />
               <p className="text-xs text-muted-foreground">
-                Live URL:{" "}
-                <code className="rounded bg-muted px-1">
-                  /{slug.trim() || "…"}
-                </code>
+                Path on your store:{" "}
+                <code className="rounded bg-muted px-1">/{slug.trim() || "…"}</code>
                 {previewUrl ? (
                   <>
-                    {" "}
-                    — full:{" "}
+                    {" · "}
                     <a
                       href={previewUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-primary underline-offset-2 hover:underline"
                     >
-                      open
+                      Preview
                     </a>
                   </>
-                ) : null}
+                ) : publicBase ? null : (
+                  <span className="block pt-1 text-muted-foreground">{ADMIN_MSG_STOREFRONT_URL_MISSING}</span>
+                )}
               </p>
             </div>
             <div className="space-y-2">
@@ -247,8 +254,7 @@ export function PolicyEditPage() {
           <CardHeader>
             <CardTitle>Footer page content</CardTitle>
             <CardDescription>
-              Use headings and lists for a professional footer content page. Content is sanitized on the
-              storefront.
+              Use clear headings and lists. Text and links are checked before they appear on your store.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -257,7 +263,7 @@ export function PolicyEditPage() {
               id="policy-body"
               value={html}
               onChange={setHtml}
-              placeholder="Write your policy here. Use headings (H2, H3) for sections, lists for bullet points, and links where needed."
+              placeholder="Write what customers should read on this page."
             />
           </CardContent>
         </Card>
@@ -266,7 +272,7 @@ export function PolicyEditPage() {
           <Button type="submit" disabled={saving}>
                         {saving ? "Saving…" : isNew ? "Create item" : "Save changes"}
           </Button>
-          <Button type="button" variant="outline" onClick={() => navigate("/dashboard/policies")}>
+          <Button type="button" variant="outline" onClick={() => navigate(FOOTER_DASHBOARD_BASE)}>
             Back to list
           </Button>
           {!isNew && policyId ? (
@@ -305,6 +311,14 @@ export function PolicyEditPage() {
           ) : null}
         </div>
       </form>
+
+      {!isNew && policyId ? (
+        <SeoFieldsSection
+          subjectType="policy_page"
+          subjectId={policyId}
+          revalidate={slug.trim() ? { policySlug: slug.trim() } : null}
+        />
+      ) : null}
     </div>
   );
 }

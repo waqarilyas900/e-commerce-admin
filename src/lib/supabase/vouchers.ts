@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
 
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 function logErr(op: string, message: string | undefined) {
   if (!message) return;
   console.error(`[vouchers] ${op}`, message);
@@ -307,7 +308,7 @@ export async function createSharedVoucherBatch(
   sharedCode: string,
 ): Promise<{ batchId: string; error?: string }> {
   if (!supabase) {
-    return { batchId: "", error: "Database connection is not configured." };
+    return { batchId: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const code = sharedCode.trim().replace(/[^a-zA-Z0-9]/g, "");
   if (!code || !/^[a-zA-Z0-9]+$/.test(code)) {
@@ -358,7 +359,7 @@ export async function createVoucherBatchWithQuantity(
   quantity: number,
 ): Promise<{ batchId: string; error?: string }> {
   if (!supabase) {
-    return { batchId: "", error: "Database connection is not configured." };
+    return { batchId: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   if (quantity < 1 || quantity > 10_000) {
     return { batchId: "", error: "Quantity must be between 1 and 10,000." };
@@ -459,7 +460,7 @@ export async function createSingleCustomerVoucherBatch(
   assigneePublicUserId: string,
 ): Promise<{ batchId: string; error?: string }> {
   if (!supabase) {
-    return { batchId: "", error: "Database connection is not configured." };
+    return { batchId: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const uid = assigneePublicUserId.trim();
   if (!uid) {
@@ -550,7 +551,7 @@ export async function updateVoucherBatch(
   payload: VoucherBatchWritePayload,
 ): Promise<{ error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
 
   const { data: meta, error: metaErr } = await supabase
@@ -644,7 +645,7 @@ export async function updateVoucherBatch(
 }
 
 export async function deleteVoucherBatch(batchId: string): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("voucher_batches").delete().eq("id", batchId);
   return error?.message;
 }
@@ -689,7 +690,7 @@ export async function assignVoucherInstance(
   voucherLabel?: string | null,
 ): Promise<{ error?: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { data: inst, error: fetchErr } = await supabase
     .from("voucher_instances")

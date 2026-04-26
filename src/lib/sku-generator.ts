@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
 
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 /**
  * First word of store name, first three letters A–Z (e.g. "Ayra's Wear" → AYR).
  */
@@ -36,7 +37,7 @@ export async function generateUniqueSkuForProduct(
   options?: { productId?: string | null },
 ): Promise<{ sku: string } | { error: string }> {
   if (!supabase) {
-    return { error: "Database connection is not configured." };
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
 
   const prefix = prefixFromStoreName(storeName);

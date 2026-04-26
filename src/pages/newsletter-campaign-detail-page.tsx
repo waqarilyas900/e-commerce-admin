@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   ADMIN_LIST_PAGE_CLASS,
   AdminListSkeleton,
@@ -39,7 +40,7 @@ export function NewsletterCampaignDetailPage() {
       return;
     }
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       setLoading(false);
       return;
     }

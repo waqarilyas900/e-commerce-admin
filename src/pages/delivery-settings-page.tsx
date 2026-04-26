@@ -59,7 +59,10 @@ export function DeliverySettingsPage() {
       queueMicrotask(() => setLoading(false));
       return;
     }
-    void fetchStoreSettings().then((row) => {
+    void fetchStoreSettings().then(({ row, fetchError }) => {
+      if (fetchError) {
+        toast.error(`Could not load delivery settings: ${fetchError}`);
+      }
       if (row) {
         const stdPaisa = row.standard_delivery_paisa ?? 50000;
         setStandardAmount(String(stdPaisa / 100));

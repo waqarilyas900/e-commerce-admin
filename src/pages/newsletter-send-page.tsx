@@ -59,7 +59,9 @@ export function NewsletterSendPage() {
       setSubject("");
       setHtml("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Network error (check VITE_STOREFRONT_ORIGIN and CORS).");
+      toast.error(
+        e instanceof Error ? e.message : "The request could not be completed. Check your connection and try again.",
+      );
     } finally {
       setSending(false);
     }
@@ -69,7 +71,7 @@ export function NewsletterSendPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Send newsletter"
-        description="Sends one marketing email per subscribed row (guest or account) via Resend. Footer links are added automatically. Configure RESEND on the storefront server."
+        description="Sends one marketing email per subscriber. Footer links are added automatically. Email delivery uses your store’s mail settings."
         actions={
           <Link to="/dashboard/newsletter">
             <Button type="button" variant="outline" size="sm">

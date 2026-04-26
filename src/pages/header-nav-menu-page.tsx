@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Plus, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -197,18 +197,12 @@ export function HeaderNavMenuPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Header menu"
-        description="Promotional links to the right of Shop on the storefront. Each item must target a collection; the storefront URL is /collections/{slug}."
+        description="Promotional links to the right of Shop on the storefront. Each item must target a collection; the link opens that collection on your live store."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button type="button" size="sm" onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add menu item
-            </Button>
-          </div>
+          <Button type="button" size="sm" onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add menu item
+          </Button>
         }
       />
 

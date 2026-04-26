@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   Card,
   CardContent,
@@ -42,9 +43,7 @@ export function ContactInquiryDetailPage() {
       return;
     }
     if (!supabase) {
-      toast.error(
-        "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
-      );
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       setRow(null);
       setLoading(false);
       return;

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -52,7 +53,7 @@ export function ColorsListPage() {
 
   async function load() {
     if (!supabase) {
-      toast.error("Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       setLoading(false);
       return;
     }
@@ -78,18 +79,12 @@ export function ColorsListPage() {
         title="Colors"
         description="Color swatches for variants: display name, optional hex, RGB, or texture image, and whether it appears in pickers."
         actions={
-          <>
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button type="button" size="sm" asChild>
-              <Link to="/dashboard/colors/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Add color
-              </Link>
-            </Button>
-          </>
+          <Button type="button" size="sm" asChild>
+            <Link to="/dashboard/colors/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add color
+            </Link>
+          </Button>
         }
       />
 

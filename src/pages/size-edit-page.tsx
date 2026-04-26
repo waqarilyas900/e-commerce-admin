@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   Card,
   CardContent,
@@ -89,7 +90,7 @@ export function SizeEditPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       return;
     }
     const sort = Number.parseInt(sortOrder, 10);
@@ -162,9 +163,7 @@ export function SizeEditPage() {
 
   if (!supabase) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
-      </p>
+      <p className="text-sm text-muted-foreground">{ADMIN_MSG_CATALOG_UNAVAILABLE}</p>
     );
   }
 

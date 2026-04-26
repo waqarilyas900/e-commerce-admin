@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, RefreshCw } from "lucide-react";
+import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   AdminListCard,
   AdminListEmpty,
@@ -91,9 +92,7 @@ export function WishlistAdminPage() {
 
   useEffect(() => {
     if (!supabase) {
-      toast.error(
-        "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
-      );
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       queueMicrotask(() => {
         setMetaLoading(false);
         setTableLoading(false);
@@ -129,33 +128,6 @@ export function WishlistAdminPage() {
       })();
     });
   }, [loadBrowse]);
-
-  async function loadAll() {
-    if (!supabase) {
-      toast.error(
-        "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
-      );
-      return;
-    }
-    await Promise.all([
-      (async () => {
-        setMetaLoading(true);
-        try {
-          await loadMeta();
-        } finally {
-          setMetaLoading(false);
-        }
-      })(),
-      (async () => {
-        setTableLoading(true);
-        try {
-          await loadBrowse();
-        } finally {
-          setTableLoading(false);
-        }
-      })(),
-    ]);
-  }
 
   const mainTabs = (
     <AdminFilterBar>
@@ -213,13 +185,7 @@ export function WishlistAdminPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Wishlist"
-        description="Customer saves from the storefront: resolved SKUs, option-only demand (no variant yet), and restock notification jobs. Data loads directly from Supabase with admin RLS."
-        actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => void loadAll()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh all
-          </Button>
-        }
+        description="Customer saves from your store: items with a chosen variant, requests where a variant is not picked yet, and restock notification requests."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -268,19 +234,11 @@ export function WishlistAdminPage() {
       <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
         <p className="font-medium text-foreground">How “Subscribed” relates to email</p>
         <p className="mt-1">
-          <strong className="text-foreground">Subscribed (notify)</strong> means the customer opted into back-in-stock
-          alerts for that wishlist row. It does <em>not</em> mean Resend already sent an email. Delivery happens only
-          when a row appears in <strong className="text-foreground">Restock queue</strong> and the storefront cron runs
-          with <code className="rounded bg-muted px-1 text-xs">RESEND_API_KEY</code> +{" "}
-          <code className="rounded bg-muted px-1 text-xs">CRON_SECRET</code>. After a successful send, the wishlist row
-          is removed — so you may see “subscribed yes” with no email if nothing was queued yet or sending failed (see
-          cron JSON <code className="text-xs">failures</code> in server logs).
-        </p>
-        <p className="mt-2">
-          <strong className="text-foreground">Resend:</strong> until you verify a domain at resend.com/domains, the API
-          may only deliver to your own Resend account address — other customers will appear in{" "}
-          <code className="text-xs">failures</code> with a domain verification message. That is unrelated to “Subscribed
-          yes” in this table.
+          <strong className="text-foreground">Subscribed (notify)</strong> means the customer asked to be emailed when
+          this item is back in stock. They are not emailed until stock returns and your storefront sends a notification.
+          Rows in <strong className="text-foreground">Restock queue</strong> are waiting to be sent; after a successful
+          send the row is cleared. You can still see “subscribed yes” with no message yet if nothing was queued or a send
+          did not complete — check your storefront email configuration and logs if deliveries look wrong.
         </p>
       </div>
 

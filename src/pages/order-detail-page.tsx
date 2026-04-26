@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -127,18 +127,12 @@ export function OrderDetailPage() {
         title={order?.order_number ? `Order ${order.order_number}` : "Order detail"}
         description="Line items, shipping snapshot, and fulfillment status. Updates append to the status timeline."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" asChild>
-              <Link to="/dashboard/orders">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                All orders
-              </Link>
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
+          <Button type="button" variant="outline" size="sm" asChild>
+            <Link to="/dashboard/orders">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              All orders
+            </Link>
+          </Button>
         }
       />
 
@@ -152,7 +146,7 @@ export function OrderDetailPage() {
             <Card className={cn(ADMIN_LIST_CARD_CLASS, "lg:col-span-2")}>
               <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
                 <CardTitle>Summary</CardTitle>
-                <CardDescription>Totals in {order.currency} (minor units in database).</CardDescription>
+                <CardDescription>Totals in {order.currency}.</CardDescription>
               </CardHeader>
               <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "grid gap-3 text-sm sm:grid-cols-2")}>
                 <div>

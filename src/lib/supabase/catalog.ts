@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import type {
   ColorRow,
   CollectionRow,
@@ -365,7 +366,7 @@ async function syncVariantsForExistingProduct(
   productId: string,
   variants: VariantSavePayload[],
 ): Promise<{ error?: string }> {
-  if (!supabase) return { error: "Database connection is not configured." };
+  if (!supabase) return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
 
   const { data: dbRows, error: fetchErr } = await supabase
     .from("product_variants")
@@ -482,7 +483,7 @@ export async function saveProductAndVariants(
   variants: VariantSavePayload[],
 ): Promise<{ id: string; error?: string }> {
   if (!supabase) {
-    return { id: "", error: "Database connection is not configured." };
+    return { id: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
 
   const { collection_ids, assets, option_definitions, tag_ids, ...productRest } = product;
@@ -684,7 +685,7 @@ export async function saveProductAndVariants(
 }
 
 export async function deleteProduct(productId: string): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("products").delete().eq("id", productId);
   return error?.message;
 }
@@ -729,7 +730,7 @@ export async function saveSize(
   payload: SizeWritePayload,
 ): Promise<{ id: string; error?: string }> {
   if (!supabase) {
-    return { id: "", error: "Database connection is not configured." };
+    return { id: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const row = {
     name: payload.name.trim(),
@@ -757,7 +758,7 @@ export async function saveSize(
 }
 
 export async function deleteSizeRow(sizeId: string): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("sizes").delete().eq("id", sizeId);
   return error?.message;
 }
@@ -818,7 +819,7 @@ export async function saveColor(
   payload: ColorWritePayload,
 ): Promise<{ id: string; error?: string }> {
   if (!supabase) {
-    return { id: "", error: "Database connection is not configured." };
+    return { id: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const row = {
     name: payload.name.trim(),
@@ -850,7 +851,7 @@ export async function saveColor(
 }
 
 export async function deleteColorRow(colorId: string): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("colors").delete().eq("id", colorId);
   return error?.message;
 }
@@ -867,7 +868,7 @@ export async function saveTag(
   payload: TagWritePayload,
 ): Promise<{ id: string; error?: string }> {
   if (!supabase) {
-    return { id: "", error: "Database connection is not configured." };
+    return { id: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const name = payload.name.trim().toLowerCase();
   const label = payload.label.trim();
@@ -898,7 +899,7 @@ export async function saveTag(
 }
 
 export async function deleteTagRow(tagId: string): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("tags").delete().eq("id", tagId);
   return error?.message;
 }
@@ -943,7 +944,7 @@ export async function saveCollection(
   payload: CollectionWritePayload,
 ): Promise<{ id: string; error?: string }> {
   if (!supabase) {
-    return { id: "", error: "Database connection is not configured." };
+    return { id: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { tag_ids, ...collectionFields } = payload;
   const row = {
@@ -1003,7 +1004,7 @@ export async function saveCollection(
 export async function deleteCollectionRow(
   collectionId: string,
 ): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase
     .from("collections")
     .delete()
@@ -1059,7 +1060,7 @@ export async function saveHomePageSection(
   payload: HomePageSectionWritePayload,
 ): Promise<{ id: string; error?: string }> {
   if (!supabase) {
-    return { id: "", error: "Database connection is not configured." };
+    return { id: "", error: ADMIN_MSG_CATALOG_UNAVAILABLE };
   }
   const { tag_ids, ...fields } = payload;
   const row = {
@@ -1110,7 +1111,7 @@ export async function saveHomePageSection(
 export async function deleteHomePageSection(
   sectionId: string,
 ): Promise<string | undefined> {
-  if (!supabase) return "Database connection is not configured.";
+  if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("home_page_sections").delete().eq("id", sectionId);
   return error?.message;
 }

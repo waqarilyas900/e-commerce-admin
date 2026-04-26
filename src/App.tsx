@@ -6,6 +6,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useParams,
 } from "react-router-dom";
 import { APP_NAME } from "@/config/brand";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
@@ -20,6 +21,7 @@ import { AnalyticsPage } from "@/pages/analytics-page";
 import { CustomersListPage } from "@/pages/customers-list-page";
 import { CustomerDetailPage } from "@/pages/customer-detail-page";
 import { SettingsPage } from "@/pages/settings-page";
+import { SeoSettingsPage } from "@/pages/seo-settings-page";
 import { ProfilePage } from "@/pages/profile-page";
 import { ProductsListPage } from "@/pages/products-list-page";
 import { ProductEditPage } from "@/pages/product-edit-page";
@@ -48,7 +50,8 @@ import { ContactInquiryDetailPage } from "@/pages/contact-inquiry-detail-page";
 import { NewsletterSubscriptionsListPage } from "@/pages/newsletter-subscriptions-list-page";
 import { NewsletterSendPage } from "@/pages/newsletter-send-page";
 import { NewsletterCampaignDetailPage } from "@/pages/newsletter-campaign-detail-page";
-import { PoliciesListPage } from "@/pages/policies-list-page";
+import { FOOTER_DASHBOARD_BASE } from "@/config/footer-dashboard";
+import { FooterUpdatesPage } from "@/pages/footer-updates-page";
 import { PolicyEditPage } from "@/pages/policy-edit-page";
 
 function RequireAuth() {
@@ -68,6 +71,11 @@ function RequireAuth() {
   }
 
   return <Outlet />;
+}
+
+function RedirectLegacyPolicyRoute() {
+  const { policyId } = useParams<{ policyId: string }>();
+  return <Navigate to={`${FOOTER_DASHBOARD_BASE}/${policyId ?? ""}`} replace />;
 }
 
 function GuestOnly() {
@@ -106,14 +114,21 @@ function AppRoutes() {
           <Route path="/dashboard/home-sections/:sectionId" element={<HomeSectionEditPage />} />
           <Route path="/dashboard/delivery" element={<DeliverySettingsPage />} />
           <Route path="/dashboard/header-menu" element={<HeaderNavMenuPage />} />
-          <Route path="/dashboard/policies" element={<PoliciesListPage />} />
-          <Route path="/dashboard/policies/new" element={<PolicyEditPage />} />
-          <Route path="/dashboard/policies/:policyId" element={<PolicyEditPage />} />
+          <Route path={FOOTER_DASHBOARD_BASE} element={<FooterUpdatesPage />} />
+          <Route path={`${FOOTER_DASHBOARD_BASE}/new`} element={<PolicyEditPage />} />
+          <Route path={`${FOOTER_DASHBOARD_BASE}/:policyId`} element={<PolicyEditPage />} />
+          <Route path="/dashboard/policies" element={<Navigate to={FOOTER_DASHBOARD_BASE} replace />} />
+          <Route
+            path="/dashboard/policies/new"
+            element={<Navigate to={`${FOOTER_DASHBOARD_BASE}/new`} replace />}
+          />
+          <Route path="/dashboard/policies/:policyId" element={<RedirectLegacyPolicyRoute />} />
           <Route path="/dashboard/home" element={<Navigate to="/dashboard/hero" replace />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/customers" element={<CustomersListPage />} />
           <Route path="/dashboard/customers/:customerId" element={<CustomerDetailPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
+          <Route path="/dashboard/seo" element={<SeoSettingsPage />} />
           <Route path="/dashboard/profile" element={<ProfilePage />} />
           <Route path="/dashboard/products" element={<ProductsListPage />} />
           <Route path="/dashboard/products/:productId" element={<ProductEditPage />} />

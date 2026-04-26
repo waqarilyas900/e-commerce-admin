@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   Card,
   CardContent,
@@ -25,6 +26,8 @@ import type { TagRow } from "@/lib/supabase/catalog-types";
 import { slugFromLabel } from "@/lib/slug";
 import { supabase } from "@/lib/supabase/client";
 import { TagMultiSelect } from "@/components/dashboard/tag-multi-select";
+import { SeoFieldsSection } from "@/components/dashboard/seo-fields-section";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -84,7 +87,7 @@ export function HomeSectionEditPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       return;
     }
 
@@ -126,6 +129,8 @@ export function HomeSectionEditPage() {
     toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/home-sections/${result.id}`, { replace: true });
+    } else {
+      void revalidateStorefront({ homeSectionSlug: slug });
     }
   }
 
@@ -144,9 +149,7 @@ export function HomeSectionEditPage() {
 
   if (!supabase) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
-      </p>
+      <p className="text-sm text-muted-foreground">{ADMIN_MSG_CATALOG_UNAVAILABLE}</p>
     );
   }
 
@@ -245,6 +248,16 @@ export function HomeSectionEditPage() {
           ) : null}
         </div>
       </form>
+
+      {!isNew && sectionId ? (
+        <div className="mx-auto w-full max-w-4xl">
+          <SeoFieldsSection
+            subjectType="home_section"
+            subjectId={sectionId}
+            revalidate={previewSlug ? { homeSectionSlug: previewSlug } : null}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

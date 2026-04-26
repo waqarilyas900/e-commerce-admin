@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -38,9 +38,7 @@ export function CustomersListPage() {
 
   async function load() {
     if (!supabase) {
-      toast.error(
-        "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
-      );
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       setLoading(false);
       return;
     }
@@ -84,12 +82,6 @@ export function CustomersListPage() {
       <PageHeader
         title="Customers"
         description="Storefront profiles linked to orders, reviews, and assigned vouchers. Open a customer to see full activity."
-        actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        }
       />
 
       <AdminListCard

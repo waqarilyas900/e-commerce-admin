@@ -1,3 +1,4 @@
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   createContext,
   useCallback,
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const failSafe = window.setTimeout(() => {
       if (!cancelled) {
         console.warn(
-          "[auth] Session bootstrap exceeded timeout — clearing loading. Check network and database URL in .env.",
+          "[auth] Session bootstrap exceeded timeout — clearing loading. Check network connectivity.",
         );
         setIsLoading(false);
       }
@@ -184,9 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) {
-      throw new Error(
-        "Database connection is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.",
-      );
+      throw new Error(ADMIN_MSG_CATALOG_UNAVAILABLE);
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({

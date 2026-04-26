@@ -23,9 +23,7 @@ function getBrowserClient(): SupabaseClient | null {
   const g = globalThis as GlobalWithClient;
 
   if (!url || !anonKey) {
-    console.warn(
-      "[admin] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Copy .env.example to .env, set values, and restart the dev server.",
-    );
+    console.warn("[admin] Store database URL or key is not configured for this admin build.");
     return null;
   }
 

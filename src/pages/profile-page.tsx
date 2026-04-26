@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   ADMIN_LIST_CARD_CLASS,
   ADMIN_LIST_CARD_HEADER_CLASS,
@@ -41,7 +42,7 @@ export function ProfilePage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       return;
     }
     setSaving(true);

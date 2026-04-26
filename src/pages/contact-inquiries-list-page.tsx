@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, Search, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import { toast } from "sonner";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   AdminListCard,
   AdminListSkeleton,
@@ -43,9 +44,7 @@ export function ContactInquiriesListPage() {
 
   const load = useCallback(async () => {
     if (!supabase) {
-      toast.error(
-        "Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.",
-      );
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       setLoading(false);
       return;
     }
@@ -99,17 +98,11 @@ export function ContactInquiriesListPage() {
       <PageHeader
         title="Contact inquiries"
         description="Messages from the storefront contact form, including optional screenshots. Open a row for the full message and images."
-        actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        }
       />
 
       <AdminListCard
         title="Inbox"
-        description="Newest first. Email delivery status reflects Resend at submit time."
+        description="Newest first. Delivery status reflects your email provider when each inquiry was sent."
         headerRight={
           <div className="relative w-full min-w-[min(100%,16rem)] sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

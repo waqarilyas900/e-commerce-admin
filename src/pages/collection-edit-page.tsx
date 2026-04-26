@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
   Card,
   CardContent,
@@ -27,6 +28,8 @@ import { uploadCollectionHeroImage } from "@/lib/supabase/storage";
 import { supabase } from "@/lib/supabase/client";
 import { TagMultiSelect } from "@/components/dashboard/tag-multi-select";
 import { CollectionTypeDb } from "@/lib/catalog/collection-type";
+import { SeoFieldsSection } from "@/components/dashboard/seo-fields-section";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 
 export function CollectionEditPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
@@ -37,6 +40,7 @@ export function CollectionEditPage() {
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");
+  const [loadedSlug, setLoadedSlug] = useState<string>("");
   const [description, setDescription] = useState("");
   const [heroImage, setHeroImage] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -66,6 +70,7 @@ export function CollectionEditPage() {
         return;
       }
       setName(row.name);
+      setLoadedSlug(row.slug ?? "");
       setDescription(row.description);
       setHeroImage(row.hero_image);
       setSortOrder(String(row.sort_order));
@@ -81,7 +86,7 @@ export function CollectionEditPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) {
-      toast.error("Database connection is not configured.");
+      toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
       return;
     }
 
@@ -120,6 +125,9 @@ export function CollectionEditPage() {
     toast.success("Saved.");
     if (isNew) {
       navigate(`/dashboard/collections/${result.id}`, { replace: true });
+    } else {
+      const slugForRevalidate = loadedSlug || payload.slug;
+      if (slugForRevalidate) void revalidateStorefront({ collectionSlug: slugForRevalidate });
     }
   }
 
@@ -157,9 +165,7 @@ export function CollectionEditPage() {
 
   if (!supabase) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Database connection is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
-      </p>
+      <p className="text-sm text-muted-foreground">{ADMIN_MSG_CATALOG_UNAVAILABLE}</p>
     );
   }
 
@@ -336,6 +342,16 @@ export function CollectionEditPage() {
           ) : null}
         </div>
       </form>
+
+      {!isNew && collectionId ? (
+        <div className="mx-auto w-full max-w-4xl">
+          <SeoFieldsSection
+            subjectType="collection"
+            subjectId={collectionId}
+            revalidate={loadedSlug ? { collectionSlug: loadedSlug } : null}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
