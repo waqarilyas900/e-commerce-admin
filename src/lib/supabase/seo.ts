@@ -286,6 +286,79 @@ export async function updateSeoSite(
 // seo_social_profiles — collection editor (variable rows)
 // ---------------------------------------------------------------------------
 
+/**
+ * Mirror of the Postgres check constraint
+ * `seo_social_url_format` — every row except `facebook_app` must store a full
+ * `http(s)://` URL. Validating client-side stops the round-trip and lets us
+ * surface a precise field-level error instead of the raw constraint name.
+ */
+const SOCIAL_URL_RE = /^https?:\/\/\S+/i;
+
+/**
+ * Best-effort normalization for paste-ins like `facebook.com/outflint` or
+ * `www.x.com/outflint`. Returns the original string when no scheme is missing
+ * (so `facebook_app` numeric IDs and already-valid URLs pass through unchanged).
+ */
+export function normalizeSocialUrl(input: string, platform: string): string {
+  const t = (input ?? "").trim();
+  if (!t) return "";
+  if (platform === "facebook_app") return t;
+  if (SOCIAL_URL_RE.test(t)) return t;
+  // Treat `domain.tld/...` and `www.domain.tld/...` as URLs that just lost their scheme.
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(t) || /^www\./i.test(t)) {
+    return `https://${t.replace(/^\/+/, "")}`;
+  }
+  return t;
+}
+
+/**
+ * Returns null when the row would satisfy the Postgres check constraint, or a
+ * human-readable reason otherwise. Callers should validate before any
+ * insert/update so admins never see "violates check constraint" toasts.
+ */
+export function validateSocialProfile(row: {
+  platform: string;
+  url: string;
+}): string | null {
+  const platform = (row.platform ?? "").trim();
+  const url = (row.url ?? "").trim();
+  if (!platform) return "Pick a platform.";
+  if (!url) {
+    return platform === "facebook_app"
+      ? "Enter the numeric Facebook App ID."
+      : "Enter the full profile URL (must start with https://).";
+  }
+  if (platform === "facebook_app") {
+    if (!/^\d+$/.test(url)) return "Facebook App ID must be numeric (digits only).";
+    return null;
+  }
+  if (!SOCIAL_URL_RE.test(url)) {
+    return "URL must start with http:// or https://";
+  }
+  return null;
+}
+
+/**
+ * Map common Postgres error shapes to plain English for toast messages. We
+ * detect by `code` first (most reliable) and fall back to the message string
+ * for environments where PostgREST strips the code.
+ */
+function humanizeSocialProfileError(error: { code?: string; message?: string } | null): string {
+  if (!error) return "Save failed.";
+  const msg = (error.message ?? "").toLowerCase();
+  if (
+    error.code === "23514" ||
+    msg.includes("seo_social_url_format") ||
+    msg.includes("check constraint")
+  ) {
+    return "Profile URL must start with https:// (or be a numeric Facebook App ID for the App row).";
+  }
+  if (error.code === "23505" || msg.includes("duplicate")) {
+    return "Only one row per platform can be marked Primary.";
+  }
+  return error.message ?? "Save failed.";
+}
+
 export async function fetchSeoSocialProfiles(): Promise<SeoSocialProfileRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -303,12 +376,14 @@ export async function insertSeoSocialProfile(
   row: SeoSocialProfileWritable,
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const reason = validateSocialProfile(row);
+  if (reason) return { ok: false, error: reason };
   const { data, error } = await supabase
     .from("seo_social_profiles")
     .insert(row)
     .select("id")
     .single();
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: humanizeSocialProfileError(error) };
   return { ok: true, id: (data as { id: string }).id };
 }
 
@@ -317,11 +392,21 @@ export async function updateSeoSocialProfile(
   patch: Partial<SeoSocialProfileWritable>,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
+  // Validate when the patch includes both fields the constraint cares about.
+  if (patch.platform !== undefined || patch.url !== undefined) {
+    const platform = patch.platform ?? "";
+    const url = patch.url ?? "";
+    // Skip validation when the caller is only flipping flags (no platform/url touch).
+    if (platform || url) {
+      const reason = validateSocialProfile({ platform, url });
+      if (reason) return { ok: false, error: reason };
+    }
+  }
   const { error } = await supabase
     .from("seo_social_profiles")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: humanizeSocialProfileError(error) };
   return { ok: true };
 }
 
