@@ -32,6 +32,14 @@ function suggestNameFromDisplay(display: string): string {
   return slug.replace(/-/g, "_");
 }
 
+function normalizeTextSizeName(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (!s) return "";
+  const slug = slugFromLabel(s);
+  if (!slug) return "";
+  return slug.replace(/-/g, "_");
+}
+
 function filterNumericSizeInput(next: string): string {
   let out = "";
   let dotSeen = false;
@@ -121,7 +129,7 @@ export function QuickAddSizeDialog({
     }
     const trimmedDisplay = displayName.trim();
     const trimmedName =
-      sizeType === "numeric" ? name.trim() : name.trim().toLowerCase();
+      sizeType === "numeric" ? name.trim() : normalizeTextSizeName(name);
     if (!trimmedName) {
       toast.error("Name is required.");
       return;
@@ -146,7 +154,7 @@ export function QuickAddSizeDialog({
     } else {
       if (!TEXT_NAME_PATTERN.test(trimmedName)) {
         toast.error(
-          "Name may use lowercase letters, numbers, and underscores only (e.g. medium, 3xl, us_9).",
+          "Name could not be normalized. Use letters and numbers (e.g. medium, 3xl, 12-20mm).",
         );
         return;
       }
@@ -255,7 +263,7 @@ export function QuickAddSizeDialog({
                     if (sizeType === "numeric") {
                       setName(filterNumericSizeInput(v));
                     } else {
-                      setName(v.toLowerCase());
+                      setName(v);
                     }
                   }}
                   required
@@ -267,7 +275,7 @@ export function QuickAddSizeDialog({
                 <p className="text-xs text-muted-foreground">
                   {sizeType === "numeric"
                     ? "Internal key: digits and at most one decimal point (e.g. 9 or 10.5)."
-                    : "Internal key: lowercase letters, numbers, and underscores."}
+                  : "Saved as a normalized internal key (letters/numbers/underscores). Example: 12-20mm becomes 12_20mm."}
                 </p>
               </div>
               <div className="space-y-2">
