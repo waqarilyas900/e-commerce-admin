@@ -20,6 +20,7 @@ import {
   deleteHeaderNavMenuItem,
   type HeaderNavMenuItemRow,
 } from "@/lib/supabase/header-nav-menu";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 import {
   ADMIN_LIST_PAGE_CLASS,
   TableContainer,
@@ -171,6 +172,9 @@ export function HeaderNavMenuPage() {
       }
       setDialogOpen(false);
       await load();
+      // Bust the storefront's header-nav-menu cache so the new menu item
+      // appears in the live header right away.
+      void revalidateStorefront({ all: true });
     } finally {
       setSaving(false);
     }
@@ -188,6 +192,7 @@ export function HeaderNavMenuPage() {
       toast.success("Removed from header menu.");
       setDeleteTarget(null);
       await load();
+      void revalidateStorefront({ all: true });
     } finally {
       setSaving(false);
     }

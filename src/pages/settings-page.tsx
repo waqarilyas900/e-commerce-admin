@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { APP_NAME } from "@/config/brand";
 import { fetchStoreSettings, updateStoreSettings } from "@/lib/supabase/store-settings";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
@@ -151,6 +152,10 @@ export function SettingsPage() {
     toast.success("Store settings saved.");
     setStoreSaved(true);
     window.setTimeout(() => setStoreSaved(false), 2500);
+    // Bust the storefront's tag-revalidated layout cache so the new store
+    // name / title / description / footer NAP propagate to the live site
+    // without waiting for the 5-minute TTL.
+    void revalidateStorefront({ all: true });
   }
 
   return (
