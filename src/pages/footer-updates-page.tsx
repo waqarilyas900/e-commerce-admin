@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FooterItemsListSection } from "@/components/dashboard/footer-items-list-section";
 import { fetchFooterSettings, updateFooterSettingsTitle } from "@/lib/supabase/footer-settings";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
@@ -53,6 +54,9 @@ export function FooterUpdatesPage() {
       toast.success("Customer care heading saved.");
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
+      // Bust the storefront's cached store-brand slice so the new heading
+      // shows on the live site without waiting for the 5-min TTL.
+      void revalidateStorefront({ all: true });
     } finally {
       setSaving(false);
     }
