@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase/client";
 import { fetchHomePageSettings, saveAnnouncementBar } from "@/lib/supabase/home-marketing";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 import { ProductDescriptionEditor } from "@/components/dashboard/product-description-editor";
 
 export function AnnouncementBarEditor() {
@@ -71,6 +72,9 @@ export function AnnouncementBarEditor() {
       return;
     }
     toast.success("Announcement bar saved.");
+    // Bust the storefront's announcement-bar cache tag so the new copy
+    // appears on the live site immediately, not after the 5-min TTL.
+    void revalidateStorefront({ all: true });
   }
 
   if (loading) {
