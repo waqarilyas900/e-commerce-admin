@@ -581,7 +581,7 @@ export function ProductEditPage() {
         return;
       }
       vpayload.push({
-        id: simpleVariantId ?? undefined,
+        id: simpleVariantId?.trim() ? simpleVariantId.trim() : undefined,
         sku: simpleSku.trim(),
         option_values: {},
         size_id: null,
@@ -647,7 +647,7 @@ export function ProductEditPage() {
         }
 
         vpayload.push({
-          id: v.id,
+          id: v.id?.trim() ? v.id.trim() : undefined,
           sku: v.sku.trim(),
           option_values,
           size_id: sizeId,

@@ -198,7 +198,7 @@ export function CollectionEditPage() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 autoComplete="off"
-                placeholder="Electronics drop"
+                placeholder="Presser foot collection"
               />
               <p className="text-xs text-muted-foreground">
                 Storefront URL:{" "}

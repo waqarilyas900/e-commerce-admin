@@ -362,6 +362,110 @@ export type VariantSavePayload = {
   quantity_on_hand: number;
 };
 
+type DbVariantSyncRow = {
+  id: string;
+  sku: string;
+  size_id: string | null;
+  color_id: string | null;
+  option_values: Record<string, unknown> | null;
+};
+
+function normVariantFk(x: string | null | undefined): string | null {
+  const t = (x ?? "").trim();
+  return t === "" ? null : t;
+}
+
+function optionValuesCompatibleWithDb(
+  payload: Record<string, string>,
+  db: Record<string, unknown> | null | undefined,
+): boolean {
+  const d = db && typeof db === "object" ? db : {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (String(d[k] ?? "") !== String(v)) return false;
+  }
+  return true;
+}
+
+function friendlyVariantConstraintError(
+  err: { message?: string; code?: string } | null | undefined,
+): string {
+  const msg = err?.message ?? "";
+  const code = err?.code ?? "";
+  if (
+    code === "23505" ||
+    msg.includes("product_variants_product_id_sku") ||
+    (msg.includes("duplicate key") && msg.toLowerCase().includes("sku"))
+  ) {
+    return "Another variant of this product already uses that SKU. Each variant needs a unique SKU; if you reordered rows, reload the editor and save again.";
+  }
+  return msg || "Variant save failed.";
+}
+
+/**
+ * Re-attach DB variant ids when the client omitted or lost `id` but size/color/SKU still match a row.
+ */
+function resolveVariantIdsForSync(
+  variants: VariantSavePayload[],
+  dbList: DbVariantSyncRow[],
+): { resolved: VariantSavePayload[]; error?: string } {
+  const dbIds = new Set(dbList.map((r) => r.id));
+  const claimed = new Set<string>();
+  const resolved: VariantSavePayload[] = [];
+
+  for (const v of variants) {
+    const raw = typeof v.id === "string" ? v.id.trim() : "";
+    let vid: string | undefined;
+    if (raw && dbIds.has(raw)) {
+      vid = raw;
+      claimed.add(raw);
+    }
+    resolved.push({ ...v, id: vid });
+  }
+
+  for (let i = 0; i < resolved.length; i++) {
+    const v = resolved[i]!;
+    if (v.id) continue;
+    const m = dbList.find(
+      (db) =>
+        !claimed.has(db.id) &&
+        normVariantFk(db.size_id) === normVariantFk(v.size_id) &&
+        normVariantFk(db.color_id) === normVariantFk(v.color_id) &&
+        optionValuesCompatibleWithDb(v.option_values, db.option_values),
+    );
+    if (m) {
+      resolved[i] = { ...v, id: m.id };
+      claimed.add(m.id);
+    }
+  }
+
+  for (let i = 0; i < resolved.length; i++) {
+    const v = resolved[i]!;
+    if (v.id) continue;
+    const skuKey = v.sku.trim().toLowerCase();
+    if (!skuKey) continue;
+    const m = dbList.find(
+      (db) => !claimed.has(db.id) && db.sku.trim().toLowerCase() === skuKey,
+    );
+    if (m) {
+      resolved[i] = { ...v, id: m.id };
+      claimed.add(m.id);
+    }
+  }
+
+  for (let i = 0; i < variants.length; i++) {
+    const raw = typeof variants[i]!.id === "string" ? variants[i]!.id!.trim() : "";
+    if (raw && !dbIds.has(raw) && !resolved[i]!.id) {
+      return {
+        resolved: [],
+        error:
+          "A variant row referenced an unknown id for this product. Reload the product editor and try again.",
+      };
+    }
+  }
+
+  return { resolved };
+}
+
 async function syncVariantsForExistingProduct(
   productId: string,
   variants: VariantSavePayload[],
@@ -370,17 +474,50 @@ async function syncVariantsForExistingProduct(
 
   const { data: dbRows, error: fetchErr } = await supabase
     .from("product_variants")
-    .select("id, sku")
+    .select("id, sku, size_id, color_id, option_values")
     .eq("product_id", productId);
   if (fetchErr) return { error: fetchErr.message };
 
-  const dbList = (dbRows ?? []) as { id: string; sku: string }[];
+  const dbList = (dbRows ?? []) as DbVariantSyncRow[];
   const dbIds = new Set(dbList.map((r) => r.id));
+
+  const { resolved, error: resolveErr } = resolveVariantIdsForSync(variants, dbList);
+  if (resolveErr) return { error: resolveErr };
+
   const formIds = new Set(
-    variants.map((v) => v.id).filter((x): x is string => Boolean(x)),
+    resolved.map((v) => v.id).filter((x): x is string => Boolean(x)),
   );
 
-  for (const v of variants) {
+  const idsToRemove = dbList.map((r) => r.id).filter((vid) => !formIds.has(vid));
+  for (const vid of idsToRemove) {
+    const { data: oi, error: oiErr } = await supabase
+      .from("order_items")
+      .select("id")
+      .eq("product_variant_id", vid)
+      .limit(1)
+      .maybeSingle();
+    if (oiErr) return { error: oiErr.message };
+    if (oi) {
+      const sku = dbList.find((r) => r.id === vid)?.sku ?? vid;
+      return {
+        error: `Cannot remove variant “${sku}”: it appears on a customer order. Keep that SKU or leave stock at 0.`,
+      };
+    }
+    const { error: dErr } = await supabase.from("product_variants").delete().eq("id", vid);
+    if (dErr) return { error: dErr.message };
+  }
+
+  for (const vid of formIds) {
+    const tmpSku = `__vrs__${vid.replace(/-/g, "")}`;
+    const { error: stampErr } = await supabase
+      .from("product_variants")
+      .update({ sku: tmpSku })
+      .eq("id", vid)
+      .eq("product_id", productId);
+    if (stampErr) return { error: friendlyVariantConstraintError(stampErr) };
+  }
+
+  for (const v of resolved) {
     const row = {
       product_id: productId,
       sku: v.sku.trim(),
@@ -402,7 +539,7 @@ async function syncVariantsForExistingProduct(
         .update(row)
         .eq("id", v.id)
         .eq("product_id", productId);
-      if (uErr) return { error: uErr.message };
+      if (uErr) return { error: friendlyVariantConstraintError(uErr) };
 
       const { data: inv, error: invFetchErr } = await supabase
         .from("inventory")
@@ -443,7 +580,7 @@ async function syncVariantsForExistingProduct(
         .select("id")
         .single();
       if (insErr || !ins) {
-        return { error: insErr?.message ?? "Variant insert failed." };
+        return { error: friendlyVariantConstraintError(insErr) };
       }
       const newId = (ins as { id: string }).id;
       const { error: invErr } = await supabase.from("inventory").insert({
@@ -453,25 +590,6 @@ async function syncVariantsForExistingProduct(
       });
       if (invErr) return { error: invErr.message };
     }
-  }
-
-  const idsToRemove = dbList.map((r) => r.id).filter((vid) => !formIds.has(vid));
-  for (const vid of idsToRemove) {
-    const { data: oi, error: oiErr } = await supabase
-      .from("order_items")
-      .select("id")
-      .eq("product_variant_id", vid)
-      .limit(1)
-      .maybeSingle();
-    if (oiErr) return { error: oiErr.message };
-    if (oi) {
-      const sku = dbList.find((r) => r.id === vid)?.sku ?? vid;
-      return {
-        error: `Cannot remove variant “${sku}”: it appears on a customer order. Keep that SKU or leave stock at 0.`,
-      };
-    }
-    const { error: dErr } = await supabase.from("product_variants").delete().eq("id", vid);
-    if (dErr) return { error: dErr.message };
   }
 
   return {};
