@@ -2,9 +2,9 @@
  * Product branding — set in `.env` (client vars must use the `VITE_` prefix).
  *
  * @example
- * VITE_APP_NAME=Electronics & tech
+ * VITE_APP_NAME=Outflint Admin
  * VITE_APP_TAGLINE=Admin
- * VITE_APP_DESCRIPTION=Operate catalog, promos, and media for your storefront.
+ * VITE_APP_DESCRIPTION=Operate catalog, promos, and media for your tailoring storefront.
  * VITE_APP_HERO_TITLE=Your store control center
  */
 
@@ -17,16 +17,16 @@ function pick(
     : fallback;
 }
 
-export const APP_NAME = pick(import.meta.env.VITE_APP_NAME, "Electronics & tech");
+export const APP_NAME = pick(import.meta.env.VITE_APP_NAME, "Outflint Admin");
 
 export const APP_TAGLINE = pick(import.meta.env.VITE_APP_TAGLINE, "Admin");
 
 export const APP_DESCRIPTION = pick(
   import.meta.env.VITE_APP_DESCRIPTION,
-  "Run the catalog, promotions, and media for your electronics storefront from one place.",
+  "Run the catalog, promotions, and media for your tailoring and stitching-accessories storefront from one place.",
 );
 
 export const APP_HERO_TITLE = pick(
   import.meta.env.VITE_APP_HERO_TITLE,
-  "Operate your electronics store",
+  "Operate your Outflint store",
 );
