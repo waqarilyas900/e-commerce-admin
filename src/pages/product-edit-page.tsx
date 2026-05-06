@@ -258,6 +258,8 @@ export function ProductEditPage() {
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"draft" | "active">("draft");
+  /** Product-level opt-in: line excluded from standard delivery / cart free-delivery thresholds. */
+  const [freeDelivery, setFreeDelivery] = useState(false);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -336,6 +338,7 @@ export function ProductEditPage() {
       setShortDescription(product.short_description);
       setDescription(product.description);
       setStatus(product.status);
+      setFreeDelivery(Boolean(product.free_delivery));
       setSelectedCollectionIds(new Set(collectionIds));
       setAssets(buildAssetsFromLoad(product.images, dbAssets));
       setSelectedTagIds(new Set(tagIds));
@@ -698,6 +701,7 @@ export function ProductEditPage() {
       short_description: shortDescription.trim(),
       description: description.trim(),
       status,
+      free_delivery: freeDelivery,
       assets: assetPayload,
       rating: rating > 0 ? rating : null,
       reviews_count: reviewsCount.trim() === "" ? null : Number.parseInt(reviewsCount, 10),
@@ -910,6 +914,23 @@ export function ProductEditPage() {
                   <p className="text-xs text-muted-foreground">
                     Draft products are not shown on the live catalog.
                   </p>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border border-input/70 bg-muted/10 p-4 sm:col-span-2">
+                  <Checkbox
+                    id="free-delivery"
+                    checked={freeDelivery}
+                    onCheckedChange={(c) => setFreeDelivery(c === true)}
+                  />
+                  <div className="min-w-0 space-y-1">
+                    <Label htmlFor="free-delivery" className="cursor-pointer text-sm font-medium">
+                      Free delivery on this product
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      This item&apos;s total won&apos;t count toward standard delivery or cart
+                      free-delivery thresholds. Other products in the same order keep normal shipping
+                      rules.
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className="space-y-2">
