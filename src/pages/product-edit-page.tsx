@@ -923,12 +923,12 @@ export function ProductEditPage() {
                   />
                   <div className="min-w-0 space-y-1">
                     <Label htmlFor="free-delivery" className="cursor-pointer text-sm font-medium">
-                      Free delivery on this product
+                      Free delivery for this product only
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      This item&apos;s total won&apos;t count toward standard delivery or cart
-                      free-delivery thresholds. Other products in the same order keep normal shipping
-                      rules.
+                      This line&apos;s total is excluded from standard delivery and from cart
+                      free-delivery thresholds. Other items in the same order still follow normal
+                      shipping rules.
                     </p>
                   </div>
                 </div>
