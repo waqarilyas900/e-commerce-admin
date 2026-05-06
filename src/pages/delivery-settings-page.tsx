@@ -148,7 +148,8 @@ export function DeliverySettingsPage() {
             <CardTitle>Standard delivery</CardTitle>
             <CardDescription>
               Enter amounts in rupees — use decimals for smaller amounts (for example{" "}
-              <span className="whitespace-nowrap">499.99</span>).
+              <span className="whitespace-nowrap">499.99</span>). Per-product free delivery is
+              enabled on each listing under Products (edit product).
             </CardDescription>
           </CardHeader>
           <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
