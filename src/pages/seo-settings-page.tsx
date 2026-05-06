@@ -1054,8 +1054,9 @@ function AnalyticsCard() {
       <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
         <CardTitle>Analytics &amp; pixels</CardTitle>
         <CardDescription>
-          Storefront only injects scripts when an ID is present. Use “Require consent” for
-          markets with cookie laws.
+          Storefront reads these from the database (no env fallback). When GTM is set, only
+          GTM loads—configure GA / Meta / TikTok inside GTM or leave GTM empty to use the
+          direct fields below. Use “Require consent” for markets with cookie laws.
         </CardDescription>
       </CardHeader>
       <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
