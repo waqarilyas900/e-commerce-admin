@@ -55,6 +55,7 @@ export async function revalidateStorefront(payload: RevalidatePayload): Promise<
   }
 
   try {
+    // Fire-and-forget invalidation request; save flows must stay responsive.
     const res = await fetch(`${origin}/api/revalidate`, {
       method: "POST",
       headers,
