@@ -38,6 +38,7 @@ export async function revalidateStorefront(payload: RevalidatePayload): Promise<
   const origin = storefrontOrigin();
   if (!origin) return;
 
+  // Minimal JSON contract used by the storefront revalidate API.
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   const secret = import.meta.env.VITE_REVALIDATE_SECRET?.trim();
