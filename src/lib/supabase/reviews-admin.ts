@@ -246,6 +246,14 @@ export async function createReviewAsAdmin(
   if (!supabase) return { ok: false, error: "Supabase not configured" };
 
   if ("user_id" in input) {
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("first_name, last_name")
+      .eq("id", input.user_id)
+      .maybeSingle();
+    const reviewerName = userRow
+      ? [userRow.first_name, userRow.last_name].filter(Boolean).join(" ").trim()
+      : "";
     const { data, error } = await supabase
       .from("reviews")
       .insert({
@@ -256,7 +264,7 @@ export async function createReviewAsAdmin(
         body: input.body.trim(),
         status: input.status,
         media: [],
-        attributed_display_name: null,
+        attributed_display_name: reviewerName || null,
         attributed_display_email: null,
       })
       .select("id")
