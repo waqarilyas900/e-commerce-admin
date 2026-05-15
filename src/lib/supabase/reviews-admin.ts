@@ -186,6 +186,24 @@ export async function fetchProductPicklistAdmin(limit = 600): Promise<ProductPic
   return (data ?? []) as ProductPicklistRow[];
 }
 
+/** Slug → product id for CSV import (active + draft so admin can seed before publish). */
+export async function fetchProductSlugIdMapAdmin(limit = 3000): Promise<Map<string, string>> {
+  if (!supabase) return new Map();
+  const cap = Math.min(limit, 5000);
+  const { data, error } = await supabase.from("products").select("id, slug").limit(cap);
+  if (error) {
+    logReviews("fetchProductSlugIdMapAdmin", error.message);
+    return new Map();
+  }
+  const m = new Map<string, string>();
+  for (const row of data ?? []) {
+    const r = row as { id: string; slug: string | null };
+    const s = (r.slug ?? "").trim().toLowerCase();
+    if (s) m.set(s, r.id);
+  }
+  return m;
+}
+
 export async function deleteReviewAdmin(reviewId: string): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
 
@@ -217,6 +235,8 @@ export async function deleteReviewAdmin(reviewId: string): Promise<{ ok: boolean
   return { ok: true };
 }
 
+export type ReviewMediaDbItem = { url: string; kind: "image" | "video" };
+
 export type CreateReviewAsAdminInput =
   | {
       product_id: string;
@@ -225,6 +245,8 @@ export type CreateReviewAsAdminInput =
       title: string;
       body: string;
       status: ReviewModerationStatus;
+      /** Optional public URLs (same shape as storefront `reviews.media`). */
+      media?: ReviewMediaDbItem[] | null;
     }
   | {
       product_id: string;
@@ -234,11 +256,25 @@ export type CreateReviewAsAdminInput =
       title: string;
       body: string;
       status: ReviewModerationStatus;
+      media?: ReviewMediaDbItem[] | null;
     };
 
 export type CreateReviewAsAdminResult =
   | { ok: true; reviewId: string }
   | { ok: false; error?: string };
+
+function normalizeInsertMedia(raw: ReviewMediaDbItem[] | null | undefined): unknown {
+  const list = Array.isArray(raw) ? raw : [];
+  const out: { url: string; kind: "image" | "video" }[] = [];
+  for (const item of list) {
+    const url = typeof item?.url === "string" ? item.url.trim() : "";
+    if (!url) continue;
+    const kind = item.kind === "video" ? "video" : "image";
+    out.push({ url, kind });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
 
 export async function createReviewAsAdmin(
   input: CreateReviewAsAdminInput,
@@ -263,7 +299,7 @@ export async function createReviewAsAdmin(
         title: input.title.trim(),
         body: input.body.trim(),
         status: input.status,
-        media: [],
+        media: normalizeInsertMedia(input.media) as unknown,
         attributed_display_name: reviewerName || null,
         attributed_display_email: null,
       })
@@ -290,7 +326,7 @@ export async function createReviewAsAdmin(
       title: input.title.trim(),
       body: input.body.trim(),
       status: input.status,
-      media: [],
+      media: normalizeInsertMedia(input.media) as unknown,
       attributed_display_name: name,
       attributed_display_email: email,
     })

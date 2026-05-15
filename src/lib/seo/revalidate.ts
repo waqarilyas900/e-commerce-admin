@@ -21,6 +21,7 @@ export type RevalidatePayload = {
   homeSectionSlug?: string;
   all?: boolean;
   tag?: string;
+  tags?: string[];
 };
 
 function storefrontOrigin(): string | null {
