@@ -252,7 +252,11 @@ export function SettingsPage() {
                     id="footer-phone"
                     value={footerPhone}
                     onChange={(e) => setFooterPhone(e.target.value)}
+                    placeholder="e.g. +92 300 1234567"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Used in the storefront footer and the product-page WhatsApp inquiry icon.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="footer-hours">Footer hours line</Label>

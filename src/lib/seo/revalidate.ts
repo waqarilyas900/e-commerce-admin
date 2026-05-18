@@ -21,6 +21,7 @@ export type RevalidatePayload = {
   homeSectionSlug?: string;
   all?: boolean;
   tag?: string;
+  tags?: string[];
 };
 
 function storefrontOrigin(): string | null {
@@ -38,6 +39,7 @@ export async function revalidateStorefront(payload: RevalidatePayload): Promise<
   const origin = storefrontOrigin();
   if (!origin) return;
 
+  // Minimal JSON contract used by the storefront revalidate API.
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   const secret = import.meta.env.VITE_REVALIDATE_SECRET?.trim();
@@ -54,6 +56,7 @@ export async function revalidateStorefront(payload: RevalidatePayload): Promise<
   }
 
   try {
+    // Fire-and-forget invalidation request; save flows must stay responsive.
     const res = await fetch(`${origin}/api/revalidate`, {
       method: "POST",
       headers,

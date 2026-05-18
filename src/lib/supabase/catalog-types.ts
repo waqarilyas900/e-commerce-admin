@@ -80,6 +80,8 @@ export type ProductRow = {
   reviews_count: number | null;
   /** Total units; variant inventory sums to this when using parent-controlled split. */
   stock_total: number | null;
+  /** Opt-in: this product's line total is excluded from shipping / threshold basis on checkout. */
+  free_delivery?: boolean | null;
   /** From `product_option_definitions`; set by `fetchProductWithVariants` only. */
   option_definitions?: VariantOptionSchemaEntry[];
   created_at: string;

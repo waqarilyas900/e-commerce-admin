@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ReviewComposeAdminDialog } from "@/components/dashboard/review-compose-admin-dialog";
+import { ReviewCsvImportDialog } from "@/components/dashboard/review-csv-import-dialog";
 import { toast } from "sonner";
 import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import {
@@ -29,6 +30,7 @@ import {
   type ReviewAdminRow,
   type ReviewModerationStatus,
 } from "@/lib/supabase/reviews-admin";
+import { revalidateStorefrontAfterReviewsChange } from "@/lib/revalidate-after-reviews";
 import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +51,7 @@ export function ReviewsListPage() {
   const [ratingFilter, setRatingFilter] = useState<number[]>(() => [...STAR_LEVELS]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -103,6 +106,7 @@ export function ReviewsListPage() {
       toast.error(res.error ?? "Update failed.");
       return;
     }
+    revalidateStorefrontAfterReviewsChange();
     await load();
   }
 
@@ -117,6 +121,7 @@ export function ReviewsListPage() {
       return;
     }
     toast.success("Review deleted.");
+    revalidateStorefrontAfterReviewsChange();
     await load();
   }
 
@@ -182,10 +187,15 @@ export function ReviewsListPage() {
         title="Reviews"
         description="Moderate storefront reviews, delete spam, or add a review attributed to a customer account. Approved reviews show as Verified buyer on the PDP."
         actions={
-          <Button type="button" size="sm" onClick={() => setComposeOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add review as customer
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setCsvImportOpen(true)}>
+              Import CSV
+            </Button>
+            <Button type="button" size="sm" onClick={() => setComposeOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add review as customer
+            </Button>
+          </div>
         }
       />
 
@@ -193,6 +203,12 @@ export function ReviewsListPage() {
         open={composeOpen}
         onOpenChange={setComposeOpen}
         onCreated={() => void load()}
+      />
+
+      <ReviewCsvImportDialog
+        open={csvImportOpen}
+        onOpenChange={setCsvImportOpen}
+        onImported={() => void load()}
       />
 
       <Dialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>

@@ -139,7 +139,7 @@ export function DeliverySettingsPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Delivery"
-        description="Set standard delivery pricing and when delivery should be free based on the cart’s product total (before delivery fees)."
+        description="Store-wide standard fee and cart minimums (before delivery). Totals exclude products marked “free delivery only” on each product — those lines do not count toward these thresholds. A cart with only those products pays no standard delivery."
       />
 
       <form onSubmit={(e) => void onSubmit(e)} className="mx-auto w-full max-w-3xl space-y-6">
@@ -148,7 +148,8 @@ export function DeliverySettingsPage() {
             <CardTitle>Standard delivery</CardTitle>
             <CardDescription>
               Enter amounts in rupees — use decimals for smaller amounts (for example{" "}
-              <span className="whitespace-nowrap">499.99</span>).
+              <span className="whitespace-nowrap">499.99</span>). Per-product free delivery is
+              enabled on each listing under Products (edit product).
             </CardDescription>
           </CardHeader>
           <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
@@ -191,8 +192,10 @@ export function DeliverySettingsPage() {
                 <div className="border-t border-border pt-6">
                   <p className="text-sm font-medium">Free delivery rules</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Add one or more minimums: when the customer’s product subtotal (before delivery) reaches{" "}
-                    <strong>any</strong> of these amounts, standard delivery is free.
+                    Add one or more minimums: when the customer’s{" "}
+                    <strong>chargeable</strong> product subtotal (before delivery — excluding
+                    per-product free-delivery lines) reaches <strong>any</strong> of these amounts,
+                    standard delivery is free for the order.
                   </p>
                   <ul className="mt-4 space-y-3">
                     {freeRules.map((rule, index) => (

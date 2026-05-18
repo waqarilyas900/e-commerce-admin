@@ -22,6 +22,7 @@ import {
   type ProductPicklistRow,
   type ReviewModerationStatus,
 } from "@/lib/supabase/reviews-admin";
+import { revalidateStorefrontAfterReviewsChange } from "@/lib/revalidate-after-reviews";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "admin-review-compose-form";
@@ -258,6 +259,7 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
         );
         onOpenChange(false);
         onCreated();
+        revalidateStorefrontAfterReviewsChange();
         return;
       }
 
@@ -274,6 +276,7 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
           toast.error(upRevErr.message);
           onOpenChange(false);
           onCreated();
+          revalidateStorefrontAfterReviewsChange();
           return;
         }
       }
@@ -289,6 +292,7 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
     toast.success("Review created.");
     onOpenChange(false);
     onCreated();
+    revalidateStorefrontAfterReviewsChange();
   }
 
   return (
