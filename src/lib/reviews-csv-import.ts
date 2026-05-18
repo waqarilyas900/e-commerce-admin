@@ -96,9 +96,80 @@ export type CsvRowParseResult =
 
 export const REVIEWS_CSV_MAX_ROWS = 250;
 
-export const REVIEWS_CSV_TEMPLATE = `product_slug,user_id,reviewer_name,reviewer_email,rating,title,review,status,media_urls
-my-product-slug,,Ayesha Khan,,5,Great quality,Love the stitching. Highly recommend.,approved,
-another-slug,,Bilal,,4,Good value,Fast delivery and solid build.,pending,https://cdn.example.com/review-photo.jpg`;
+export const REVIEWS_CSV_HEADER =
+  "product_slug,user_id,reviewer_name,reviewer_email,rating,title,review,status,media_urls";
+
+/** Escape a cell for RFC4180 CSV output. */
+export function escapeCsvCell(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export type ProductCatalogCsvRow = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+};
+
+/** Review import template with a real catalog slug when available (no fake placeholder slugs). */
+export function buildReviewsImportTemplate(exampleSlug?: string | null): string {
+  const slug = (exampleSlug ?? "").trim() || "YOUR_PRODUCT_SLUG";
+  const row = [
+    slug,
+    "",
+    "Reviewer Name",
+    "",
+    "5",
+    "Review title",
+    "Review text goes here.",
+    "approved",
+    "",
+  ]
+    .map(escapeCsvCell)
+    .join(",");
+  return `${REVIEWS_CSV_HEADER}\n${row}`;
+}
+
+/** Downloadable list of products for filling product_slug / product_id in review CSVs. */
+export function buildProductCatalogCsv(products: ProductCatalogCsvRow[]): string {
+  const lines = [
+    "product_id,product_slug,product_name,status",
+    ...products.map((p) =>
+      [p.id, p.slug, p.name, p.status].map((c) => escapeCsvCell(c)).join(","),
+    ),
+  ];
+  return lines.join("\n");
+}
+
+export type ParseReviewCsvOptions = {
+  /** Lowercased slug → product id */
+  slugToId: Map<string, string>;
+  /** Used when a row omits product_id and product_slug */
+  defaultProductId?: string | null;
+  /** When set, every row uses this product (CSV product columns are ignored) */
+  forceProductId?: string | null;
+};
+
+function downloadCsvFile(filename: string, content: string): void {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadReviewsImportTemplate(exampleSlug?: string | null): void {
+  downloadCsvFile("reviews-import-template.csv", buildReviewsImportTemplate(exampleSlug));
+}
+
+export function downloadProductCatalogCsv(products: ProductCatalogCsvRow[]): void {
+  downloadCsvFile("products-for-review-import.csv", buildProductCatalogCsv(products));
+}
 
 /**
  * Parse data rows (after header). `slugToId` keys must be lowercased slugs.
@@ -106,8 +177,11 @@ another-slug,,Bilal,,4,Good value,Fast delivery and solid build.,pending,https:/
 export function parseReviewCsvDataRows(
   headerRow: string[],
   dataRows: string[][],
-  slugToId: Map<string, string>,
+  options: ParseReviewCsvOptions,
 ): CsvRowParseResult[] {
+  const { slugToId, defaultProductId, forceProductId } = options;
+  const forcedId = forceProductId?.trim() || "";
+  const fallbackId = defaultProductId?.trim() || "";
   const headers = headerRow.map(normHeader);
   const idx = (name: string) => headers.indexOf(name);
 
@@ -128,8 +202,15 @@ export function parseReviewCsvDataRows(
   if (iBody < 0 && iReview < 0) {
     return [{ ok: false, lineNumber: 1, error: "CSV must include a review column: body or review." }];
   }
-  if (iProductId < 0 && iSlug < 0) {
-    return [{ ok: false, lineNumber: 1, error: "CSV must include product_id or product_slug." }];
+  if (iProductId < 0 && iSlug < 0 && !forcedId && !fallbackId) {
+    return [
+      {
+        ok: false,
+        lineNumber: 1,
+        error:
+          "CSV must include product_id or product_slug, or choose a default product in the import dialog.",
+      },
+    ];
   }
 
   const results: CsvRowParseResult[] = [];
@@ -157,17 +238,29 @@ export function parseReviewCsvDataRows(
       if (key) map[key] = cells[j] ?? "";
     }
 
+    let product_id = forcedId;
     const productIdRaw = iProductId >= 0 ? (cells[iProductId] ?? "").trim() : "";
     const slugRaw = iSlug >= 0 ? (cells[iSlug] ?? "").trim().toLowerCase() : "";
-    let product_id = productIdRaw;
-    if (!product_id && slugRaw) {
-      product_id = slugToId.get(slugRaw) ?? "";
-    }
+
     if (!product_id) {
+      product_id = productIdRaw;
+      if (!product_id && slugRaw) {
+        product_id = slugToId.get(slugRaw) ?? "";
+      }
+      if (!product_id && fallbackId) {
+        product_id = fallbackId;
+      }
+    }
+
+    if (!product_id) {
+      const hint =
+        slugRaw && !slugToId.has(slugRaw)
+          ? ` Unknown product_slug: "${slugRaw}". Download "Product list" and use a slug from that file.`
+          : " Missing product_id / product_slug — pick a default product above or add a column to the CSV.";
       results.push({
         ok: false,
         lineNumber,
-        error: slugRaw ? `Unknown product_slug: "${slugRaw}"` : "Missing product_id / product_slug.",
+        error: hint.trim(),
       });
       lineNumber++;
       continue;

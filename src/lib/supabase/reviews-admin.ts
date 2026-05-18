@@ -25,6 +25,7 @@ export type ReviewAdminRow = {
 export type ProductPicklistRow = {
   id: string;
   name: string;
+  slug: string | null;
   status: string;
 };
 
@@ -176,7 +177,7 @@ export async function fetchProductPicklistAdmin(limit = 600): Promise<ProductPic
   const cap = Math.min(limit, 1000);
   const { data, error } = await supabase
     .from("products")
-    .select("id, name, status")
+    .select("id, name, slug, status")
     .order("name", { ascending: true })
     .limit(cap);
   if (error) {
@@ -190,7 +191,11 @@ export async function fetchProductPicklistAdmin(limit = 600): Promise<ProductPic
 export async function fetchProductSlugIdMapAdmin(limit = 3000): Promise<Map<string, string>> {
   if (!supabase) return new Map();
   const cap = Math.min(limit, 5000);
-  const { data, error } = await supabase.from("products").select("id, slug").limit(cap);
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, slug")
+    .order("name", { ascending: true })
+    .limit(cap);
   if (error) {
     logReviews("fetchProductSlugIdMapAdmin", error.message);
     return new Map();
