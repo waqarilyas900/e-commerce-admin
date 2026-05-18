@@ -1,5 +1,7 @@
 import { revalidateStorefront } from "@/lib/seo/revalidate";
 
+// Keep in sync with storefront `lib/cache/catalog-data.ts` tag strings.
+
 /** Must match `CATALOG_CACHE_TAGS` in the storefront `lib/cache/catalog-data.ts`. */
 const TAG_STORE_REVIEW_AGGREGATE = "catalog:store-review-aggregate";
 const TAG_PRODUCTS = "catalog:products";
