@@ -1,8 +1,9 @@
 import { Outlet } from "react-router-dom";
-import { LayoutDashboard, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import {
   APP_DESCRIPTION,
   APP_HERO_TITLE,
+  APP_LOGO_SRC,
   APP_NAME,
   APP_TAGLINE,
 } from "@/config/brand";
@@ -10,18 +11,15 @@ import {
 function BrandMark({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-          <LayoutDashboard className="h-6 w-6" aria-hidden />
-        </div>
-        <div className="text-left">
-          <p className="text-lg font-semibold tracking-tight text-foreground">
-            {APP_NAME}
-          </p>
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {APP_TAGLINE}
-          </p>
-        </div>
+      <div className="flex flex-col gap-2 text-left">
+        <img
+          src={APP_LOGO_SRC}
+          alt={APP_NAME}
+          className="h-10 w-auto max-w-[240px] object-contain object-left dark:invert"
+        />
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {APP_TAGLINE}
+        </p>
       </div>
     </div>
   );

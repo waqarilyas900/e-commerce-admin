@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, PanelLeft, Shield } from "lucide-react";
-import { APP_NAME, APP_TAGLINE } from "@/config/brand";
+import { ChevronDown, ChevronLeft, ChevronRight, PanelLeft } from "lucide-react";
+import { APP_LOGO_SRC, APP_MARK_SRC, APP_NAME, APP_TAGLINE } from "@/config/brand";
 import { navGroups, type NavGroup, type NavItem } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -124,15 +124,20 @@ function SidebarNav({
           collapsed && !isMobile && "justify-center px-2",
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
-          <Shield className="h-5 w-5" aria-hidden />
-        </div>
-        {(!collapsed || isMobile) && (
+        {collapsed && !isMobile ? (
+          <img
+            src={APP_MARK_SRC}
+            alt={APP_NAME}
+            className="h-9 w-9 shrink-0 object-contain dark:invert"
+          />
+        ) : (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-              {APP_NAME}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">{APP_TAGLINE}</p>
+            <img
+              src={APP_LOGO_SRC}
+              alt={APP_NAME}
+              className="h-8 w-auto max-w-full object-contain object-left dark:invert"
+            />
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{APP_TAGLINE}</p>
           </div>
         )}
       </div>
