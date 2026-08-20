@@ -254,7 +254,10 @@ export function ProductEditPage() {
   const [quickColorOpen, setQuickColorOpen] = useState(false);
 
   const [name, setName] = useState("");
+  /** Slug currently stored in DB (stable URL). */
   const [loadedSlug, setLoadedSlug] = useState<string>("");
+  /** Slug that will be written on next save (defaults to loadedSlug). */
+  const [slugDraft, setSlugDraft] = useState<string>("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"draft" | "active">("draft");
@@ -335,6 +338,7 @@ export function ProductEditPage() {
       const { product, variants: vv, collectionIds, tagIds, assets: dbAssets } = res;
       setName(product.name);
       setLoadedSlug(product.slug ?? "");
+      setSlugDraft(product.slug ?? "");
       setShortDescription(product.short_description);
       setDescription(product.description);
       setStatus(product.status);
@@ -548,7 +552,12 @@ export function ProductEditPage() {
       return;
     }
 
-    const slug = slugFromLabel(name);
+    // Keep existing storefront URL stable on edit. Regenerating from `name` on every
+    // save (including price-only edits) broke SEO and caused "URL changed after price update".
+    const slugFromName = slugFromLabel(name);
+    const slug = isNew
+      ? slugFromName
+      : (slugDraft.trim() || loadedSlug.trim() || slugFromName);
     if (!slug) {
       toast.error(
         "Use a name with letters or numbers so we can build a URL (e.g. “Graphic Tee”).",
@@ -737,8 +746,31 @@ export function ProductEditPage() {
     if (isNew) {
       navigate(`/dashboard/products/${result.id}`, { replace: true });
     } else {
-      const slugForRevalidate = loadedSlug || payload.slug;
+      const previousSlug = loadedSlug.trim();
+      if (previousSlug && previousSlug !== slug && supabase) {
+        const fromPath = `/products/${previousSlug}`;
+        const toPath = `/products/${slug}`;
+        const { error: redirectErr } = await supabase.from("url_redirects").upsert(
+          {
+            from_path: fromPath,
+            to_path: toPath,
+            status_code: 301,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "from_path" },
+        );
+        if (redirectErr) {
+          toast.warning(`Saved, but redirect failed: ${redirectErr.message}`);
+        }
+      }
+      setLoadedSlug(slug);
+      setSlugDraft(slug);
+      const slugForRevalidate = slug || previousSlug;
       if (slugForRevalidate) void revalidateStorefront({ productSlug: slugForRevalidate });
+      if (previousSlug && previousSlug !== slug) {
+        void revalidateStorefront({ productSlug: previousSlug });
+      }
     }
   }
 
@@ -881,10 +913,13 @@ export function ProductEditPage() {
           <div className="space-y-6">
             <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">Listing</p>
-              <p className="text-xs text-muted-foreground">
-                Shown on cards and search. The name generates the product URL.
-              </p>
-              <div className="grid gap-6 sm:grid-cols-2">
+                  <p className="text-xs text-muted-foreground">
+                    Shown on cards and search.{" "}
+                    {isNew
+                      ? "New products get a URL from the name."
+                      : "Editing the name or price does not change the product URL."}
+                  </p>
+                  <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="name">Product name</Label>
                   <Input
@@ -894,12 +929,47 @@ export function ProductEditPage() {
                     required
                     autoComplete="off"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Storefront URL:{" "}
-                    <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.8rem]">
-                      /products/{slugFromLabel(name) || "…"}
-                    </code>
-                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                    <span>
+                      Storefront URL:{" "}
+                      <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.8rem]">
+                        /products/
+                        {isNew
+                          ? slugFromLabel(name) || "…"
+                          : slugDraft || loadedSlug || slugFromLabel(name) || "…"}
+                      </code>
+                    </span>
+                    {!isNew && loadedSlug ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const next = slugFromLabel(name);
+                          if (!next) {
+                            toast.error("Name needs letters or numbers to build a URL.");
+                            return;
+                          }
+                          if (next === (slugDraft || loadedSlug)) {
+                            toast.message("URL already matches this name.");
+                            return;
+                          }
+                          if (
+                            !window.confirm(
+                              `Change URL from\n/products/${loadedSlug}\nto\n/products/${next}\n\nA 301 redirect will be saved on Save. Continue?`,
+                            )
+                          ) {
+                            return;
+                          }
+                          setSlugDraft(next);
+                          toast.message("URL will update when you save.");
+                        }}
+                      >
+                        Regenerate URL from name
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="space-y-2 sm:max-w-xs">
                   <Label htmlFor="status">Status</Label>
