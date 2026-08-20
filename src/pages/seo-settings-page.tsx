@@ -1054,9 +1054,10 @@ function AnalyticsCard() {
       <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
         <CardTitle>Analytics &amp; pixels</CardTitle>
         <CardDescription>
-          Storefront reads these from the database (no env fallback). When GTM is set, only
-          GTM loads—configure GA / Meta / TikTok inside GTM or leave GTM empty to use the
-          direct fields below. Use “Require consent” for markets with cookie laws.
+          Storefront loads these from the database. GA4 (G-XXXX) can run alongside GTM—if the
+          same GA4 property is also configured inside GTM, remove one side to avoid double
+          page_view counts. When GTM is set, Meta/TikTok should be managed inside GTM (direct
+          pixel fields are skipped). Use “Require consent” for markets with cookie laws.
         </CardDescription>
       </CardHeader>
       <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "space-y-4")}>
