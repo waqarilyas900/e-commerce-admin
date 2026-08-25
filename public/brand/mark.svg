@@ -1,11 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="SimpleCart Store">
-  <g transform="translate(6, 2) scale(0.9)" fill="none" stroke="#0A0A0A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 24 34 L 40 34 L 50 98"/>
-    <path d="M 50 50 L 126 50 L 114 98 L 59 98 Z"/>
-    <path d="M 70 50 L 73 98 M 104 50 L 101 98"/>
-  </g>
-  <g transform="translate(6, 2) scale(0.9)">
-    <circle cx="66" cy="120" r="9" fill="#0A0A0A"/>
-    <circle cx="106" cy="120" r="9" fill="#0A0A0A"/>
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="600" rx="120" fill="#1C1D1D"/>
+  <g transform="translate(90,60) scale(1.35)">
+    <path d="M40 60 H74 L98 90" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M98 90
+             L178 32
+             L258 90
+             L258 198
+             L98 198
+             Z"
+          fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="150" y="140" width="56" height="58" rx="7" fill="#E88A5A"/>
+    <line x1="98" y1="146" x2="258" y2="146" stroke="#FFFFFF" stroke-width="10"/>
+    <circle cx="130" cy="222" r="19" fill="#FFFFFF"/>
+    <circle cx="226" cy="222" r="19" fill="#FFFFFF"/>
+    <circle cx="130" cy="222" r="6" fill="#1C1D1D"/>
+    <circle cx="226" cy="222" r="6" fill="#1C1D1D"/>
   </g>
 </svg>
