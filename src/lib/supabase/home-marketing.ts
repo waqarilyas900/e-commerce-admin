@@ -23,6 +23,8 @@ export type HomePageSettingsPayload = {
   announcementEnabled: boolean;
   /** Seconds between rotations (3–12); stored in DB as ms. */
   announcementRotationSec: number;
+  /** Storefront header layout: classic (v1) or AliExpress-style (v2). */
+  navbarVariant: "v1" | "v2";
 };
 
 export async function fetchHomePageSettings(): Promise<{
@@ -42,6 +44,22 @@ export async function fetchHomePageSettings(): Promise<{
   if (error) {
     return { data: null, error: error.message };
   }
+
+  let navbarVariant: "v1" | "v2" = "v1";
+  const variantRes = await supabase
+    .from("home_page_settings")
+    .select("navbar_variant")
+    .eq("id", 1)
+    .maybeSingle();
+  if (!variantRes.error) {
+    const rawVariant = String(
+      (variantRes.data as { navbar_variant?: string } | null)?.navbar_variant ?? "",
+    )
+      .trim()
+      .toLowerCase();
+    navbarVariant = rawVariant === "v2" ? "v2" : "v1";
+  }
+
   if (!data) {
     return {
       data: {
@@ -52,6 +70,7 @@ export async function fetchHomePageSettings(): Promise<{
         announcementFg: "#ffffff",
         announcementEnabled: true,
         announcementRotationSec: 5,
+        navbarVariant,
       },
     };
   }
@@ -84,6 +103,7 @@ export async function fetchHomePageSettings(): Promise<{
       announcementFg: data.announcement_bar_fg ?? "#ffffff",
       announcementEnabled: data.announcement_enabled !== false,
       announcementRotationSec,
+      navbarVariant,
     },
   };
 }
@@ -145,6 +165,26 @@ export async function saveAnnouncementBar(payload: {
       announcement_bar_bg: bg,
       announcement_bar_fg: fg,
       announcement_enabled: payload.announcement_enabled,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+  if (error) {
+    return { error: error.message };
+  }
+  return {};
+}
+
+export async function saveNavbarVariant(
+  navbar_variant: "v1" | "v2",
+): Promise<{ error?: string }> {
+  if (!supabase) {
+    return { error: ADMIN_MSG_CATALOG_UNAVAILABLE };
+  }
+  const variant = navbar_variant === "v2" ? "v2" : "v1";
+  const { error } = await supabase
+    .from("home_page_settings")
+    .update({
+      navbar_variant: variant,
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);
