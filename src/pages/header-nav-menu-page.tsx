@@ -20,10 +20,6 @@ import {
   deleteHeaderNavMenuItem,
   type HeaderNavMenuItemRow,
 } from "@/lib/supabase/header-nav-menu";
-import {
-  fetchHomePageSettings,
-  saveNavbarVariant,
-} from "@/lib/supabase/home-marketing";
 import { revalidateStorefront } from "@/lib/seo/revalidate";
 import {
   ADMIN_LIST_PAGE_CLASS,
@@ -66,8 +62,6 @@ export function HeaderNavMenuPage() {
   const [rows, setRows] = useState<HeaderNavMenuItemRow[]>([]);
   const [collections, setCollections] = useState<CollectionRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [navbarVariant, setNavbarVariant] = useState<"v1" | "v2">("v1");
-  const [savingVariant, setSavingVariant] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<HeaderNavMenuItemRow | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -82,16 +76,12 @@ export function HeaderNavMenuPage() {
     }
     setLoading(true);
     try {
-      const [navRows, cols, home] = await Promise.all([
+      const [navRows, cols] = await Promise.all([
         fetchHeaderNavMenuItemsAdmin(),
         fetchCollections(),
-        fetchHomePageSettings(),
       ]);
       setRows(navRows);
       setCollections(cols);
-      if (home.data?.navbarVariant) {
-        setNavbarVariant(home.data.navbarVariant);
-      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load.");
     } finally {
@@ -104,26 +94,6 @@ export function HeaderNavMenuPage() {
       void load();
     });
   }, []);
-
-  async function onSaveNavbarVariant(next: "v1" | "v2") {
-    setNavbarVariant(next);
-    setSavingVariant(true);
-    try {
-      const res = await saveNavbarVariant(next);
-      if (res.error) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(
-        next === "v2"
-          ? "Navbar 2 (AliExpress-style) is now live."
-          : "Navbar 1 (classic) is now live.",
-      );
-      void revalidateStorefront({ all: true });
-    } finally {
-      setSavingVariant(false);
-    }
-  }
 
   function openCreate() {
     setEditing(null);
@@ -232,7 +202,7 @@ export function HeaderNavMenuPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Header menu"
-        description="Choose the storefront navbar layout, then manage promotional links shown next to Shop / All Categories."
+        description="Manage promotional links shown next to All Categories in the storefront header."
         actions={
           <Button type="button" size="sm" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
@@ -240,50 +210,6 @@ export function HeaderNavMenuPage() {
           </Button>
         }
       />
-
-      <div className={cn(ADMIN_LIST_CARD_CLASS, "mb-4")}>
-        <div className={ADMIN_LIST_CARD_HEADER_CLASS}>
-          <h2 className="text-lg font-semibold tracking-tight">Navbar layout</h2>
-          <p className="text-sm text-muted-foreground">
-            Only the selected navbar appears on the live storefront. Navbar 1 is the classic
-            centered logo; Navbar 2 is the AliExpress-style search bar layout.
-          </p>
-        </div>
-        <div className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "flex flex-col gap-3 sm:flex-row")}>
-          <button
-            type="button"
-            disabled={savingVariant}
-            onClick={() => void onSaveNavbarVariant("v1")}
-            className={cn(
-              "flex-1 rounded-xl border-2 px-4 py-3 text-left transition",
-              navbarVariant === "v1"
-                ? "border-neutral-900 bg-neutral-50"
-                : "border-neutral-200 hover:border-neutral-300",
-            )}
-          >
-            <p className="text-sm font-semibold">Navbar 1 — Classic</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Centered logo, Shop + links on the left, search icon on the right.
-            </p>
-          </button>
-          <button
-            type="button"
-            disabled={savingVariant}
-            onClick={() => void onSaveNavbarVariant("v2")}
-            className={cn(
-              "flex-1 rounded-xl border-2 px-4 py-3 text-left transition",
-              navbarVariant === "v2"
-                ? "border-neutral-900 bg-neutral-50"
-                : "border-neutral-200 hover:border-neutral-300",
-            )}
-          >
-            <p className="text-sm font-semibold">Navbar 2 — AliExpress style</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Logo + wide search bar, then All Categories + promo links underneath.
-            </p>
-          </button>
-        </div>
-      </div>
 
       <div className={cn(ADMIN_LIST_CARD_CLASS)}>
         <div className={ADMIN_LIST_CARD_HEADER_CLASS}>
