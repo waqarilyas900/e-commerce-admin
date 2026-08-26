@@ -1097,14 +1097,14 @@ export function ProductEditPage() {
                     id="product-video-url"
                     type="url"
                     inputMode="url"
-                    placeholder="https://…/video.mp4"
+                    placeholder="https://www.instagram.com/reels/… or https://…/video.mp4"
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Paste a <strong>direct video file URL</strong> only (MP4 / WebM / MOV / HLS
-                    .m3u8) — same as Rad Store. Instagram / YouTube / Facebook page links will not
-                    play. Host the file on your CDN or any public URL, then paste the link here.
+                    Paste an <strong>Instagram</strong> reel/post URL, or a direct MP4 / HLS link.
+                    YouTube and Facebook links are not supported. Instagram plays inside the
+                    Rad-style feed (tap play on the reel).
                   </p>
                 </div>
                 {assets.map((row, i) => (
