@@ -82,6 +82,8 @@ export type ProductRow = {
   stock_total: number | null;
   /** Opt-in: this product's line total is excluded from shipping / threshold basis on checkout. */
   free_delivery?: boolean | null;
+  /** Sticky promo / reel URL (YouTube, Facebook, Instagram, or direct MP4). */
+  video_url?: string | null;
   /** From `product_option_definitions`; set by `fetchProductWithVariants` only. */
   option_definitions?: VariantOptionSchemaEntry[];
   created_at: string;

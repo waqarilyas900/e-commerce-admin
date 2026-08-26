@@ -263,6 +263,8 @@ export function ProductEditPage() {
   const [status, setStatus] = useState<"draft" | "active">("draft");
   /** Product-level opt-in: line excluded from standard delivery / cart free-delivery thresholds. */
   const [freeDelivery, setFreeDelivery] = useState(false);
+  /** Sticky storefront reel — YouTube / Facebook / Instagram / direct MP4 URL. */
+  const [videoUrl, setVideoUrl] = useState("");
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -343,6 +345,7 @@ export function ProductEditPage() {
       setDescription(product.description);
       setStatus(product.status);
       setFreeDelivery(Boolean(product.free_delivery));
+      setVideoUrl((product.video_url ?? "").trim());
       setSelectedCollectionIds(new Set(collectionIds));
       setAssets(buildAssetsFromLoad(product.images, dbAssets));
       setSelectedTagIds(new Set(tagIds));
@@ -711,6 +714,7 @@ export function ProductEditPage() {
       description: description.trim(),
       status,
       free_delivery: freeDelivery,
+      video_url: videoUrl.trim() || null,
       assets: assetPayload,
       rating: rating > 0 ? rating : null,
       reviews_count: reviewsCount.trim() === "" ? null : Number.parseInt(reviewsCount, 10),
@@ -1087,6 +1091,22 @@ export function ProductEditPage() {
           }
         >
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="product-video-url">Sticky video URL (optional)</Label>
+                  <Input
+                    id="product-video-url"
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://youtube.com/... or Facebook / Instagram / MP4 link"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Shown as a sticky mini player on this product page, and randomly on the homepage
+                    among products that have a video. Paste a YouTube, Facebook, Instagram, or direct
+                    MP4 link.
+                  </p>
+                </div>
                 {assets.map((row, i) => (
                   <div
                     key={row.key}

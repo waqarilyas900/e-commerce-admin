@@ -115,7 +115,7 @@ export async function fetchProductsWithVariantCount(): Promise<
   const { data: products, error: pErr } = await supabase
     .from("products")
     .select(
-      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, created_at, updated_at",
+      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, video_url, created_at, updated_at",
     )
     .order("updated_at", { ascending: false });
   if (pErr || !products) {
@@ -212,7 +212,7 @@ export async function fetchProductWithVariants(
   const { data: product, error: pErr } = await supabase
     .from("products")
     .select(
-      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, created_at, updated_at",
+      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, video_url, created_at, updated_at",
     )
     .eq("id", productId)
     .maybeSingle();
@@ -345,6 +345,8 @@ export type ProductSavePayload = {
   stock_total: number;
   /** When true, this product's line is excluded from standard delivery / threshold basis. */
   free_delivery: boolean;
+  /** Sticky promo video URL for storefront (YouTube / Facebook / Instagram / MP4). Empty clears. */
+  video_url: string | null;
   /** PDP: labels and presentation per `option_values` key (normalized table). */
   option_definitions: VariantOptionSchemaEntry[];
 };
