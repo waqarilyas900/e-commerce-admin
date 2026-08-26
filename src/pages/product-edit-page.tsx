@@ -1102,9 +1102,9 @@ export function ProductEditPage() {
                     onChange={(e) => setVideoUrl(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Paste an <strong>Instagram</strong> reel/post URL, or a direct MP4 / HLS link.
-                    YouTube and Facebook links are not supported. Instagram plays inside the
-                    Rad-style feed (tap play on the reel).
+                    Paste an <strong>Instagram</strong> reel/post URL (or a direct MP4 link). The
+                    storefront plays it as a muted looping video — no Instagram UI. YouTube /
+                    Facebook are not supported.
                   </p>
                 </div>
                 {assets.map((row, i) => (
