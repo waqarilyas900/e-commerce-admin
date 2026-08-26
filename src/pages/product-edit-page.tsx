@@ -1097,14 +1097,15 @@ export function ProductEditPage() {
                     id="product-video-url"
                     type="url"
                     inputMode="url"
-                    placeholder="https://youtube.com/... or Facebook / Instagram / MP4 link"
+                    placeholder="https://youtube.com/... or Instagram / Facebook / MP4 link"
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Shown as a sticky mini player on this product page, and randomly on the homepage
-                    among products that have a video. Paste a YouTube, Facebook, Instagram, or direct
-                    MP4 link.
+                    Sticky mini player on this product page, and randomly on the homepage among
+                    products with a video. For autoplay (Rad-style loop), use YouTube or a direct
+                    MP4. Instagram / Facebook links work as tap-to-play embeds (Instagram blocks
+                    autoplay on websites).
                   </p>
                 </div>
                 {assets.map((row, i) => (
