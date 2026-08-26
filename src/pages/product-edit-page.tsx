@@ -1092,21 +1092,19 @@ export function ProductEditPage() {
         >
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="product-video-url">Sticky video URL (optional)</Label>
+                  <Label htmlFor="product-video-url">Sticky reel video URL (optional)</Label>
                   <Input
                     id="product-video-url"
                     type="url"
                     inputMode="url"
-                    placeholder="https://youtube.com/... or Instagram / Facebook / MP4 link"
+                    placeholder="https://…/video.mp4"
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Paste a YouTube, Facebook, Instagram, or direct MP4 link. Instagram share links
-                    like <code className="rounded bg-muted px-1 font-mono text-[0.7rem]">/reels/…</code>{" "}
-                    and <code className="rounded bg-muted px-1 font-mono text-[0.7rem]">/reel/…</code>{" "}
-                    both work. For autoplay (Rad-style loop), prefer YouTube or MP4 — Instagram is
-                    tap-to-play.
+                    Paste a <strong>direct video file URL</strong> only (MP4 / WebM / MOV / HLS
+                    .m3u8) — same as Rad Store. Instagram / YouTube / Facebook page links will not
+                    play. Host the file on your CDN or any public URL, then paste the link here.
                   </p>
                 </div>
                 {assets.map((row, i) => (
