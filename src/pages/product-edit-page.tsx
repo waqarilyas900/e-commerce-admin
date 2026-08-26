@@ -1102,10 +1102,11 @@ export function ProductEditPage() {
                     onChange={(e) => setVideoUrl(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Sticky mini player on this product page, and randomly on the homepage among
-                    products with a video. For autoplay (Rad-style loop), use YouTube or a direct
-                    MP4. Instagram / Facebook links work as tap-to-play embeds (Instagram blocks
-                    autoplay on websites).
+                    Paste a YouTube, Facebook, Instagram, or direct MP4 link. Instagram share links
+                    like <code className="rounded bg-muted px-1 font-mono text-[0.7rem]">/reels/…</code>{" "}
+                    and <code className="rounded bg-muted px-1 font-mono text-[0.7rem]">/reel/…</code>{" "}
+                    both work. For autoplay (Rad-style loop), prefer YouTube or MP4 — Instagram is
+                    tap-to-play.
                   </p>
                 </div>
                 {assets.map((row, i) => (
