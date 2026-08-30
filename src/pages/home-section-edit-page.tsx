@@ -228,6 +228,13 @@ export function HomeSectionEditPage() {
                 tags={catalogTags}
                 value={selectedTagIds}
                 onChange={setSelectedTagIds}
+                onTagCreated={(newTag) => {
+                  setCatalogTags((prev) =>
+                    [...prev.filter((t) => t.id !== newTag.id), newTag].sort((a, b) =>
+                      a.label.localeCompare(b.label),
+                    ),
+                  );
+                }}
                 aria-label="Section tags"
               />
               <p className="text-xs text-muted-foreground">

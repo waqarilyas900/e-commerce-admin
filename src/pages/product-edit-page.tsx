@@ -1794,10 +1794,17 @@ export function ProductEditPage() {
               tags={catalogTags}
               value={selectedTagIds}
               onChange={setSelectedTagIds}
+              onTagCreated={(newTag) => {
+                setCatalogTags((prev) =>
+                  [...prev.filter((t) => t.id !== newTag.id), newTag].sort((a, b) =>
+                    a.label.localeCompare(b.label),
+                  ),
+                );
+              }}
               aria-label="Product tags"
             />
             <p className="text-xs text-muted-foreground">
-              Create and edit tag definitions under Catalog → Tags.
+              Search existing tags or type a new tag name to create and assign it instantly.
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">

@@ -246,7 +246,33 @@ export async function fetchProductWithVariants(
     .from("product_tags")
     .select("tag_id")
     .eq("product_id", productId);
-  const tagIds = (ptRows ?? []).map((r: { tag_id: string }) => r.tag_id);
+  const tagIdsSet = new Set<string>((ptRows ?? []).map((r: { tag_id: string }) => r.tag_id));
+
+  // If product has legacy or denormalized text tags, resolve their IDs from public.tags
+  const legacyTags = Array.isArray(product.tags) ? product.tags : [];
+  if (legacyTags.length > 0) {
+    const catalogStringTags = legacyTags
+      .filter(
+        (t): t is string =>
+          typeof t === "string" &&
+          t.trim() !== "" &&
+          !t.startsWith("daraz:") &&
+          !t.startsWith("rating_breakdown:"),
+      )
+      .map((t) => t.trim().toLowerCase());
+
+    if (catalogStringTags.length > 0) {
+      const { data: matchedTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .in("name", catalogStringTags);
+
+      for (const mt of matchedTags ?? []) {
+        tagIdsSet.add(mt.id);
+      }
+    }
+  }
+  const tagIds = Array.from(tagIdsSet);
 
   const { data: assetRows } = await supabase
     .from("product_assets")
@@ -624,6 +650,25 @@ export async function saveProductAndVariants(
       return { id: "", error: tagFetchErr.message };
     }
     tagNames = (tagRows ?? []).map((r: { name: string }) => r.name);
+  }
+
+  // Preserve existing metadata/system tags (e.g. daraz:..., rating_breakdown:...) on update
+  if (productId && supabase) {
+    const { data: existingProd } = await supabase
+      .from("products")
+      .select("tags")
+      .eq("id", productId)
+      .maybeSingle();
+
+    const existingTags = Array.isArray(existingProd?.tags) ? existingProd.tags : [];
+    const metaTags = existingTags.filter(
+      (t) => typeof t === "string" && (t.startsWith("daraz:") || t.startsWith("rating_breakdown:")),
+    );
+    for (const m of metaTags) {
+      if (!tagNames.includes(m)) {
+        tagNames.push(m);
+      }
+    }
   }
 
   const row = {
