@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
 import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
@@ -18,12 +19,11 @@ import {
   adminTd,
   AdminRowEditLink,
 } from "@/components/dashboard/admin-list-shell";
-import { fetchTags } from "@/lib/supabase/catalog";
-import type { TagRow } from "@/lib/supabase/catalog-types";
+import { fetchTagsWithProductCount, type TagWithCountRow } from "@/lib/supabase/catalog";
 import { supabase } from "@/lib/supabase/client";
 
 export function TagsListPage() {
-  const [rows, setRows] = useState<TagRow[]>([]);
+  const [rows, setRows] = useState<TagWithCountRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -34,7 +34,7 @@ export function TagsListPage() {
     }
     setLoading(true);
     try {
-      setRows(await fetchTags());
+      setRows(await fetchTagsWithProductCount());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load tags.");
     } finally {
@@ -77,7 +77,8 @@ export function TagsListPage() {
               <thead>
                 <tr className={ADMIN_TABLE_HEAD}>
                   <th className={adminTh()}>Label</th>
-                  <th className={adminTh()}>Name</th>
+                  <th className={adminTh()}>Name (Slug)</th>
+                  <th className={adminTh()}>Products</th>
                   <th className={adminThEnd()} />
                 </tr>
               </thead>
@@ -86,6 +87,21 @@ export function TagsListPage() {
                   <tr key={t.id} className={ADMIN_TABLE_ROW}>
                     <td className={adminTd("font-medium")}>{t.label}</td>
                     <td className={adminTd("font-mono text-xs text-muted-foreground")}>{t.name}</td>
+                    <td className={adminTd()}>
+                      {t.product_count > 0 ? (
+                        <Link
+                          to={`/dashboard/products?tag=${encodeURIComponent(t.name)}`}
+                          className="inline-flex items-center gap-1.5 transition hover:opacity-80"
+                          title={`View ${t.product_count} products with tag "${t.label}"`}
+                        >
+                          <Badge variant="secondary" className="font-normal tabular-nums">
+                            {t.product_count} {t.product_count === 1 ? "product" : "products"}
+                          </Badge>
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">0 products</span>
+                      )}
+                    </td>
                     <td className={adminTd("text-right")}>
                       <AdminRowEditLink to={`/dashboard/tags/${t.id}`} />
                     </td>

@@ -19,12 +19,11 @@ import {
   adminTd,
   AdminRowEditLink,
 } from "@/components/dashboard/admin-list-shell";
-import { fetchHomePageSections } from "@/lib/supabase/catalog";
-import type { HomePageSectionRow } from "@/lib/supabase/catalog-types";
+import { fetchHomePageSections, type HomePageSectionWithTags } from "@/lib/supabase/catalog";
 import { supabase } from "@/lib/supabase/client";
 
 export function HomeSectionsListPage() {
-  const [rows, setRows] = useState<HomePageSectionRow[]>([]);
+  const [rows, setRows] = useState<HomePageSectionWithTags[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -75,12 +74,13 @@ export function HomeSectionsListPage() {
           <AdminListEmpty>No home sections yet.</AdminListEmpty>
         ) : (
           <TableContainer>
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className={ADMIN_TABLE_HEAD}>
                   <th className={adminTh()}>Name</th>
                   <th className={adminTh()}>Slug</th>
                   <th className={adminTh()}>Status</th>
+                  <th className={adminTh()}>Assigned Tags</th>
                   <th className={adminTh()}>Sort</th>
                   <th className={adminThEnd()} />
                 </tr>
@@ -92,12 +92,36 @@ export function HomeSectionsListPage() {
                     <td className={adminTd("font-mono text-xs text-muted-foreground")}>{s.slug}</td>
                     <td className={adminTd()}>
                       {s.is_active ? (
-                        <Badge variant="secondary">Active</Badge>
+                        <Badge variant="success">Active</Badge>
                       ) : (
                         <Badge variant="outline">Inactive</Badge>
                       )}
                     </td>
-                    <td className={adminTd()}>{s.sort_order}</td>
+                    <td className={adminTd("max-w-[min(280px,32vw)] align-top")}>
+                      {s.tags.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">No tags assigned</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {s.tags.map((t) => (
+                            <Link
+                              key={t.id}
+                              to={`/dashboard/tags/${t.id}`}
+                              className="inline-flex max-w-full shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Badge
+                                variant="outline"
+                                className="max-w-44 truncate font-normal hover:bg-muted"
+                                title={t.label}
+                              >
+                                {t.label}
+                              </Badge>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className={adminTd("tabular-nums text-muted-foreground")}>{s.sort_order}</td>
                     <td className={adminTd("text-right")}>
                       <AdminRowEditLink to={`/dashboard/home-sections/${s.id}`}>
                         Edit

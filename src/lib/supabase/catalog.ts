@@ -75,6 +75,10 @@ export async function fetchCollections(): Promise<CollectionRow[]> {
   return (data ?? []) as CollectionRow[];
 }
 
+export type TagWithCountRow = TagRow & {
+  product_count: number;
+};
+
 export async function fetchTags(): Promise<TagRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -86,6 +90,31 @@ export async function fetchTags(): Promise<TagRow[]> {
     return [];
   }
   return (data ?? []) as TagRow[];
+}
+
+export async function fetchTagsWithProductCount(): Promise<TagWithCountRow[]> {
+  if (!supabase) return [];
+  const [tagsRes, ptRes] = await Promise.all([
+    supabase
+      .from("tags")
+      .select("id, name, label, created_at, updated_at")
+      .order("label", { ascending: true }),
+    supabase.from("product_tags").select("tag_id"),
+  ]);
+  if (tagsRes.error) {
+    logCatalogIssue("fetchTagsWithProductCount", tagsRes.error.message);
+    return [];
+  }
+  const tagList = (tagsRes.data ?? []) as TagRow[];
+  const counts = new Map<string, number>();
+  for (const r of ptRes.data ?? []) {
+    const tid = (r as { tag_id: string }).tag_id;
+    counts.set(tid, (counts.get(tid) ?? 0) + 1);
+  }
+  return tagList.map((t) => ({
+    ...t,
+    product_count: counts.get(t.id) ?? 0,
+  }));
 }
 
 export async function fetchTagById(id: string): Promise<TagRow | null> {
@@ -1179,9 +1208,13 @@ export async function deleteCollectionRow(
   return error?.message;
 }
 
-export async function fetchHomePageSections(): Promise<HomePageSectionRow[]> {
+export type HomePageSectionWithTags = HomePageSectionRow & {
+  tags: { id: string; label: string }[];
+};
+
+export async function fetchHomePageSections(): Promise<HomePageSectionWithTags[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
+  const { data: sections, error } = await supabase
     .from("home_page_sections")
     .select("id, name, slug, is_active, sort_order, created_at, updated_at")
     .order("sort_order", { ascending: true });
@@ -1189,7 +1222,34 @@ export async function fetchHomePageSections(): Promise<HomePageSectionRow[]> {
     logCatalogIssue("fetchHomePageSections", error.message);
     return [];
   }
-  return (data ?? []) as HomePageSectionRow[];
+  const secList = (sections ?? []) as HomePageSectionRow[];
+  if (secList.length === 0) return [];
+
+  const { data: tagLinks } = await supabase
+    .from("home_page_section_tags")
+    .select("section_id, tag_id, tags(id, label)");
+
+  const tagMap = new Map<string, { id: string; label: string }[]>();
+  for (const l of tagLinks ?? []) {
+    const item = l as unknown as {
+      section_id: string;
+      tag_id: string;
+      tags: { id: string; label: string } | { id: string; label: string }[] | null;
+    };
+    if (item.tags) {
+      const tagObj = Array.isArray(item.tags) ? item.tags[0] : item.tags;
+      if (tagObj) {
+        const arr = tagMap.get(item.section_id) || [];
+        arr.push({ id: tagObj.id, label: tagObj.label });
+        tagMap.set(item.section_id, arr);
+      }
+    }
+  }
+
+  return secList.map((s) => ({
+    ...s,
+    tags: tagMap.get(s.id) || [],
+  }));
 }
 
 export async function fetchHomePageSectionById(

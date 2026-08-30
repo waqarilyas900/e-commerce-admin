@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Package, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Package, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -30,8 +32,22 @@ import { cn } from "@/lib/utils";
 type Row = ProductRow & { variant_count: number; catalog_tags: ProductCatalogTagRef[] };
 
 export function ProductsListPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const initialTag = searchParams.get("tag") || "";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTag, setSelectedTag] = useState(initialTag);
+  const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "draft">("all");
+
+  useEffect(() => {
+    const urlTag = searchParams.get("tag");
+    if (urlTag !== null) {
+      setSelectedTag(urlTag);
+    }
+  }, [searchParams]);
+
   async function load() {
     if (!supabase) {
       toast.error(ADMIN_MSG_CATALOG_UNAVAILABLE);
@@ -54,6 +70,68 @@ export function ProductsListPage() {
       void load();
     });
   }, []);
+
+  const allAvailableTags = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of rows) {
+      for (const t of p.catalog_tags) {
+        map.set(t.label.toLowerCase(), t.label);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([slug, label]) => ({ slug, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((p) => {
+      if (selectedStatus !== "all" && p.status !== selectedStatus) {
+        return false;
+      }
+      if (selectedTag) {
+        const target = selectedTag.toLowerCase().trim();
+        const hasTag = p.catalog_tags.some((t) => {
+          const l = t.label.toLowerCase().trim();
+          const legacyName = t.id.replace(/^legacy:/, "").toLowerCase().trim();
+          return l === target || legacyName === target;
+        });
+        if (!hasTag) return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = p.name.toLowerCase().includes(q);
+        const matchesSlug = (p.slug || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesSlug) return false;
+      }
+      return true;
+    });
+  }, [rows, selectedStatus, selectedTag, searchQuery]);
+
+  function handleTagSelect(tagLabel: string) {
+    setSelectedTag(tagLabel);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tagLabel) {
+        next.set("tag", tagLabel);
+      } else {
+        next.delete("tag");
+      }
+      return next;
+    });
+  }
+
+  function clearAllFilters() {
+    setSearchQuery("");
+    setSelectedTag("");
+    setSelectedStatus("all");
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("tag");
+      return next;
+    });
+  }
+
+  const isFiltered = Boolean(searchQuery.trim() || selectedTag || selectedStatus !== "all");
 
   return (
     <div className={ADMIN_LIST_PAGE_CLASS}>
@@ -90,72 +168,165 @@ export function ProductsListPage() {
             </Button>
           </EmptyState>
         ) : (
-          <TableContainer>
-            <table className="w-full min-w-[880px] text-left text-sm">
-              <thead>
-                <tr className={ADMIN_TABLE_HEAD}>
-                  <th className={adminTh()}>Name</th>
-                  <th className={adminTh()}>Slug</th>
-                  <th className={adminTh()}>Status</th>
-                  <th className={adminTh()}>Tags</th>
-                  <th className={adminTh()}>Variants</th>
-                  <th className={adminThEnd()} />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((p) => (
-                  <tr key={p.id} className={ADMIN_TABLE_ROW}>
-                    <td className={adminTd("font-medium text-foreground")}>{p.name}</td>
-                    <td className={adminTd("font-mono text-xs text-muted-foreground")}>{p.slug}</td>
-                    <td className={adminTd()}>
-                      <Badge
-                        variant={p.status === "active" ? "success" : "secondary"}
-                        className="font-medium capitalize"
-                      >
-                        {p.status}
-                      </Badge>
-                    </td>
-                    <td className={adminTd("max-w-[min(280px,32vw)] align-top")}>
-                      {p.catalog_tags.length === 0 ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {p.catalog_tags.map((t) => {
-                            const isLegacy = t.id.startsWith("legacy:");
-                            const pill = (
-                              <Badge
-                                variant="outline"
-                                className="max-w-44 truncate font-normal"
-                                title={t.label}
-                              >
-                                {t.label}
-                              </Badge>
-                            );
-                            return isLegacy ? (
-                              <span key={t.id}>{pill}</span>
-                            ) : (
-                              <Link
-                                key={t.id}
-                                to={`/dashboard/tags/${t.id}`}
-                                className="inline-flex max-w-full shrink-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {pill}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </td>
-                    <td className={adminTd("tabular-nums text-muted-foreground")}>{p.variant_count}</td>
-                    <td className={cn(adminTd(), "text-right")}>
-                      <AdminRowEditLink to={`/dashboard/products/${p.id}`} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableContainer>
+          <div className="space-y-4">
+            {/* Filter Toolbar */}
+            <div className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/20 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-1 flex-wrap items-center gap-2.5">
+                <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or slug…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 pl-9 text-sm"
+                  />
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="w-full sm:w-48">
+                  <NativeSelect
+                    value={selectedTag}
+                    onChange={(e) => handleTagSelect(e.target.value)}
+                    className="h-9 text-sm"
+                    aria-label="Filter by tag"
+                  >
+                    <option value="">All tags ({allAvailableTags.length})</option>
+                    {allAvailableTags.map((t) => (
+                      <option key={t.slug} value={t.label}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+
+                <div className="w-full sm:w-36">
+                  <NativeSelect
+                    value={selectedStatus}
+                    onChange={(e) =>
+                      setSelectedStatus(e.target.value as "all" | "active" | "draft")
+                    }
+                    className="h-9 text-sm"
+                    aria-label="Filter by status"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="active">Active only</option>
+                    <option value="draft">Drafts only</option>
+                  </NativeSelect>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground sm:justify-end">
+                <span className="tabular-nums font-medium">
+                  Showing {filteredRows.length} of {rows.length}
+                </span>
+                {isFiltered ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10"
+                  >
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    Clear filters
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+
+            {filteredRows.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border py-12 text-center">
+                <p className="text-sm font-medium text-foreground">No matching products found</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Try adjusting your search query or tag filter.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="mt-4"
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            ) : (
+              <TableContainer>
+                <table className="w-full min-w-[880px] text-left text-sm">
+                  <thead>
+                    <tr className={ADMIN_TABLE_HEAD}>
+                      <th className={adminTh()}>Name</th>
+                      <th className={adminTh()}>Slug</th>
+                      <th className={adminTh()}>Status</th>
+                      <th className={adminTh()}>Tags</th>
+                      <th className={adminTh()}>Variants</th>
+                      <th className={adminThEnd()} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map((p) => (
+                      <tr key={p.id} className={ADMIN_TABLE_ROW}>
+                        <td className={adminTd("font-medium text-foreground")}>{p.name}</td>
+                        <td className={adminTd("font-mono text-xs text-muted-foreground")}>
+                          {p.slug}
+                        </td>
+                        <td className={adminTd()}>
+                          <Badge
+                            variant={p.status === "active" ? "success" : "secondary"}
+                            className="font-medium capitalize"
+                          >
+                            {p.status}
+                          </Badge>
+                        </td>
+                        <td className={adminTd("max-w-[min(280px,32vw)] align-top")}>
+                          {p.catalog_tags.length === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {p.catalog_tags.map((t) => {
+                                const isCurrentFilter =
+                                  selectedTag.toLowerCase() === t.label.toLowerCase();
+                                return (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => handleTagSelect(t.label)}
+                                    className="cursor-pointer transition hover:opacity-80"
+                                    title={`Filter by tag "${t.label}"`}
+                                  >
+                                    <Badge
+                                      variant={isCurrentFilter ? "default" : "outline"}
+                                      className="max-w-44 truncate font-normal"
+                                    >
+                                      {t.label}
+                                    </Badge>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </td>
+                        <td className={adminTd("tabular-nums text-muted-foreground")}>
+                          {p.variant_count}
+                        </td>
+                        <td className={cn(adminTd(), "text-right")}>
+                          <AdminRowEditLink to={`/dashboard/products/${p.id}`} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableContainer>
+            )}
+          </div>
         )}
       </AdminListCard>
     </div>

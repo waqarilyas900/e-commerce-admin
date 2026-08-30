@@ -18,6 +18,7 @@ import { deleteTagRow, fetchTagById, saveTag, type TagWritePayload } from "@/lib
 import { supabase } from "@/lib/supabase/client";
 import { slugFromLabel } from "@/lib/slug";
 import { SeoFieldsSection } from "@/components/dashboard/seo-fields-section";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 
 export function TagEditPage() {
   const { tagId } = useParams<{ tagId: string }>();
@@ -86,6 +87,7 @@ export function TagEditPage() {
       return;
     }
     toast.success("Saved.");
+    void revalidateStorefront({ all: true });
     if (isNew) {
       navigate(`/dashboard/tags/${result.id}`, { replace: true });
     }
@@ -105,6 +107,7 @@ export function TagEditPage() {
       toast.error(err);
       return;
     }
+    void revalidateStorefront({ all: true });
     navigate("/dashboard/tags");
   }
 
