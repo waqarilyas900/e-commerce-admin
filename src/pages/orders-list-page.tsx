@@ -109,7 +109,9 @@ export function OrdersListPage() {
       toast.error(res.error ?? "Delete failed.");
       return;
     }
-    toast.success("Order deleted.");
+    toast.success(
+      res.stockRestored ? "Order deleted — stock restored to inventory." : "Order deleted.",
+    );
     setPendingDelete(null);
     await load();
   }
@@ -190,7 +192,7 @@ export function OrdersListPage() {
                 <span className="font-mono font-medium text-foreground">
                   {pendingDelete.order_number ?? pendingDelete.id.slice(0, 8)}
                 </span>{" "}
-                and all line items will be removed permanently.
+                and all line items will be removed permanently. Stock will be restored to inventory.
               </>
             ) : undefined
           }

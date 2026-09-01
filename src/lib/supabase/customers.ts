@@ -36,6 +36,47 @@ export async function fetchCustomersAdmin(limit = 200): Promise<PublicUserRow[]>
   return (data ?? []) as PublicUserRow[];
 }
 
+export type CustomersPageResult = {
+  rows: PublicUserRow[];
+  total: number;
+};
+
+export async function fetchCustomersAdminPaginated(options: {
+  page: number;
+  pageSize: number;
+  search?: string;
+}): Promise<CustomersPageResult> {
+  if (!supabase) return { rows: [], total: 0 };
+  const pageSize = Math.min(Math.max(options.pageSize, 1), 100);
+  const page = Math.max(options.page, 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let q = supabase
+    .from("users")
+    .select(USER_SELECT, { count: "exact" })
+    .order("created_at", { ascending: false });
+
+  const search = options.search?.trim();
+  if (search) {
+    const term = `%${search}%`;
+    q = q.or(
+      [
+        `phone.ilike.${term}`,
+        `first_name.ilike.${term}`,
+        `last_name.ilike.${term}`,
+      ].join(","),
+    );
+  }
+
+  const { data, error, count } = await q.range(from, to);
+  if (error) {
+    logCustomers("fetchCustomersAdminPaginated", error.message);
+    return { rows: [], total: 0 };
+  }
+  return { rows: (data ?? []) as PublicUserRow[], total: count ?? 0 };
+}
+
 export async function fetchCustomerByIdAdmin(id: string): Promise<PublicUserRow | null> {
   if (!supabase) return null;
   const { data, error } = await supabase

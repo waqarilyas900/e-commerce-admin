@@ -102,6 +102,35 @@ function logOrders(op: string, message: string | undefined) {
 
 import { logAdminAction } from "@/lib/audit-log";
 
+const RESTORE_STATUSES: OrderStatus[] = ["cancelled", "refunded"];
+
+async function restoreOrderInventoryAdmin(
+  orderId: string,
+): Promise<{ ok: boolean; error?: string; alreadyRestored?: boolean; restoredLines?: number }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const { data, error } = await supabase.rpc("restore_order_inventory", {
+    p_order_id: orderId,
+  });
+  if (error) {
+    logOrders("restoreOrderInventoryAdmin", error.message);
+    return { ok: false, error: error.message };
+  }
+  const payload = data as {
+    ok?: boolean;
+    error?: string;
+    already_restored?: boolean;
+    restored_lines?: number;
+  } | null;
+  if (!payload?.ok) {
+    return { ok: false, error: payload?.error ?? "Inventory restore failed" };
+  }
+  return {
+    ok: true,
+    alreadyRestored: payload.already_restored === true,
+    restoredLines: payload.restored_lines ?? 0,
+  };
+}
+
 export type OrdersPageResult = {
   rows: OrderRow[];
   total: number;
@@ -293,15 +322,22 @@ export async function fetchOrderStatusHistoryAdmin(
 
 export async function deleteOrderAdmin(
   orderId: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; stockRestored?: boolean }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const restore = await restoreOrderInventoryAdmin(orderId);
+  if (!restore.ok) {
+    return { ok: false, error: restore.error ?? "Could not restore stock before delete." };
+  }
   const { error } = await supabase.from("orders").delete().eq("id", orderId);
   if (error) {
     logOrders("deleteOrderAdmin", error.message);
     return { ok: false, error: error.message };
   }
-  await logAdminAction("delete", "orders", orderId);
-  return { ok: true };
+  await logAdminAction("delete", "orders", orderId, {
+    stock_restored: !restore.alreadyRestored,
+    restored_lines: restore.restoredLines ?? 0,
+  });
+  return { ok: true, stockRestored: !restore.alreadyRestored };
 }
 
 export async function updateOrderInternalNoteAdmin(
@@ -353,7 +389,7 @@ export async function updateOrderStatusAdmin(
   orderId: string,
   nextStatus: OrderStatus,
   note?: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; stockRestored?: boolean }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };
   const now = new Date().toISOString();
   const { error: uErr } = await supabase
@@ -373,6 +409,19 @@ export async function updateOrderStatusAdmin(
     logOrders("order_status_history insert", hErr.message);
     return { ok: false, error: hErr.message };
   }
-  await logAdminAction("update_status", "orders", orderId, { status: nextStatus });
-  return { ok: true };
+
+  let stockRestored = false;
+  if (RESTORE_STATUSES.includes(nextStatus)) {
+    const restore = await restoreOrderInventoryAdmin(orderId);
+    if (!restore.ok) {
+      return { ok: false, error: restore.error ?? "Status saved but stock restore failed." };
+    }
+    stockRestored = !restore.alreadyRestored && (restore.restoredLines ?? 0) > 0;
+  }
+
+  await logAdminAction("update_status", "orders", orderId, {
+    status: nextStatus,
+    stock_restored: stockRestored,
+  });
+  return { ok: true, stockRestored };
 }

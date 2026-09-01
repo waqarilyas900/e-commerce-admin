@@ -145,7 +145,11 @@ export function OrderDetailPage() {
       return;
     }
     setNote("");
-    toast.success("Status updated.");
+    if (res.stockRestored) {
+      toast.success("Status updated — stock restored to inventory.");
+    } else {
+      toast.success("Status updated.");
+    }
     await load();
   }
 
@@ -185,7 +189,9 @@ export function OrderDetailPage() {
       toast.error(res.error ?? "Delete failed.");
       return;
     }
-    toast.success("Order deleted.");
+    toast.success(
+      res.stockRestored ? "Order deleted — stock restored to inventory." : "Order deleted.",
+    );
     navigate("/dashboard/orders", { replace: true });
   }
 
@@ -240,7 +246,7 @@ export function OrderDetailPage() {
         subtitle={
           <>
             Order <span className="font-mono font-medium text-foreground">{orderRef}</span> and all
-            related line items will be removed permanently.
+            related line items will be removed permanently. Variant stock will be returned to inventory if not already restored.
           </>
         }
         busy={deleting}
