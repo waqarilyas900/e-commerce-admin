@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { cn } from "@/lib/utils";
 
 // Table primitives — single import path for list pages
@@ -21,18 +22,18 @@ export const ADMIN_LIST_PAGE_CLASS = "space-y-8";
 
 /** Primary data card shell (list tables, detail sections) */
 export const ADMIN_LIST_CARD_CLASS =
-  "overflow-hidden border-border/70 shadow-md shadow-black/[0.04] dark:shadow-black/30";
+  "overflow-hidden border-border/70 bg-card shadow-sm dark:border-border/60";
 
 /** Card header: title + description only */
 export const ADMIN_LIST_CARD_HEADER_CLASS =
-  "border-b border-border/60 bg-muted/20 dark:bg-muted/10";
+  "border-b border-border/60 bg-muted/30 px-6 py-5 dark:bg-muted/15";
 
 /** Card header: title block + right slot (filters, links) */
 export const ADMIN_LIST_CARD_HEADER_SPLIT_CLASS =
-  "flex flex-col gap-5 border-b border-border/60 bg-muted/20 sm:flex-row sm:items-end sm:justify-between dark:bg-muted/10";
+  "flex flex-col gap-4 border-b border-border/60 bg-muted/30 px-6 py-5 sm:flex-row sm:items-end sm:justify-between dark:bg-muted/15";
 
 /** Card body under header */
-export const ADMIN_LIST_CARD_CONTENT_CLASS = "pt-6";
+export const ADMIN_LIST_CARD_CONTENT_CLASS = "px-6 pb-6 pt-5";
 
 /** Optional dashboard content width */
 export const ADMIN_DASHBOARD_MAX_CLASS = "mx-auto max-w-[1600px]";
@@ -107,8 +108,23 @@ export function AdminListSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function AdminListEmpty({ children }: { children: React.ReactNode }) {
-  return <p className="py-8 text-center text-sm text-muted-foreground">{children}</p>;
+export function AdminListEmpty({
+  children,
+  icon,
+  title,
+}: {
+  children: React.ReactNode;
+  icon?: React.ComponentProps<typeof EmptyState>["icon"];
+  title?: string;
+}) {
+  return (
+    <EmptyState
+      icon={icon}
+      title={title ?? "Nothing here yet"}
+      description={children}
+      className="border-0 bg-transparent py-10"
+    />
+  );
 }
 
 export function AdminFilterBar({
@@ -133,13 +149,32 @@ export function AdminFilterBar({
 export function AdminRowEditLink({
   to,
   children = "Edit",
+  className,
 }: {
   to: string;
   children?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <Button variant="ghost" size="sm" className="font-medium text-primary" asChild>
+    <Button
+      variant="ghost"
+      size="sm"
+      className={cn("font-medium text-primary hover:bg-primary/5", className)}
+      asChild
+    >
       <Link to={to}>{children}</Link>
     </Button>
+  );
+}
+
+export function AdminRowActions({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center justify-end gap-1", className)}>{children}</div>
   );
 }

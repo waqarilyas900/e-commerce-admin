@@ -62,7 +62,7 @@ export function StatCards() {
         return (
           <Card
             key={s.label}
-            className="group overflow-hidden border-border/70 bg-gradient-to-b from-card to-card/80 shadow-sm transition-shadow duration-200 hover:shadow-md"
+            className="group overflow-hidden border-border/70 bg-card shadow-sm"
           >
             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
               <div className="space-y-1">

@@ -7,7 +7,11 @@ export function DashboardLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen w-full bg-background bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,hsl(var(--primary)/0.06),transparent)] dark:bg-none">
+    <div className="flex min-h-screen w-full bg-background">
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_100%_50%_at_50%_-10%,hsl(var(--primary)/0.05),transparent)]"
+        aria-hidden
+      />
       <AppSidebar
         mobileOpen={mobileNavOpen}
         onMobileOpenChange={setMobileNavOpen}

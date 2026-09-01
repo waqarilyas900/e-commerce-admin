@@ -23,7 +23,7 @@ export function PageHeader({
   wideDescription,
 }: PageHeaderProps) {
   return (
-    <header className={cn("mb-10 space-y-5", className)}>
+    <header className={cn("mb-8 space-y-4 border-b border-border/60 pb-6", className)}>
       {backLink ? (
         <Button
           variant="ghost"
@@ -39,7 +39,7 @@ export function PageHeader({
       ) : null}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             {title}
           </h1>
           {description ? (

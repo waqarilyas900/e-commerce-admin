@@ -13,7 +13,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ADMIN_LIST_CARD_CLASS, ADMIN_LIST_CARD_HEADER_CLASS } from "@/components/dashboard/admin-list-shell";
 import { ChartContainer } from "@/components/dashboard/chart-container";
+import { cn } from "@/lib/utils";
 
 /** Illustrative storefront sessions (replace with live analytics when available). */
 const data = Array.from({ length: 24 }, (_, i) => {
@@ -27,8 +29,8 @@ const data = Array.from({ length: 24 }, (_, i) => {
 
 export function ActivityChart() {
   return (
-    <Card className="min-h-[320px]">
-      <CardHeader>
+    <Card className={cn(ADMIN_LIST_CARD_CLASS, "min-h-[320px]")}>
+      <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
         <CardTitle>Activity</CardTitle>
         <CardDescription>Illustrative session trend (last 24 hours)</CardDescription>
       </CardHeader>

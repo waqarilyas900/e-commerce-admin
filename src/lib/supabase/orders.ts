@@ -203,6 +203,18 @@ export async function fetchOrderStatusHistoryAdmin(
   return (data ?? []) as OrderStatusHistoryRow[];
 }
 
+export async function deleteOrderAdmin(
+  orderId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const { error } = await supabase.from("orders").delete().eq("id", orderId);
+  if (error) {
+    logOrders("deleteOrderAdmin", error.message);
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
 export async function updateOrderStatusAdmin(
   orderId: string,
   nextStatus: OrderStatus,

@@ -13,7 +13,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ADMIN_LIST_CARD_CLASS, ADMIN_LIST_CARD_HEADER_CLASS } from "@/components/dashboard/admin-list-shell";
 import { ChartContainer } from "@/components/dashboard/chart-container";
+import { cn } from "@/lib/utils";
 
 const categories = [
   { name: "Accessories", count: 420 },
@@ -25,8 +27,8 @@ const categories = [
 
 export function DistributionChart() {
   return (
-    <Card className="min-h-[320px]">
-      <CardHeader>
+    <Card className={cn(ADMIN_LIST_CARD_CLASS, "min-h-[320px]")}>
+      <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
         <CardTitle>Distribution</CardTitle>
         <CardDescription>Illustrative mix by product type (preview)</CardDescription>
       </CardHeader>

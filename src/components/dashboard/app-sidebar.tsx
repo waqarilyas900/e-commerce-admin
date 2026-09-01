@@ -311,7 +311,7 @@ export function AppSidebar({ mobileOpen, onMobileOpenChange }: AppSidebarProps) 
   return (
     <aside
       className={cn(
-        "sticky top-0 z-30 hidden h-screen shrink-0 border-r border-sidebar-border/80 bg-sidebar transition-[width] duration-200 ease-out md:flex md:flex-col",
+        "sticky top-0 z-30 hidden h-screen shrink-0 border-r border-sidebar-border bg-sidebar md:flex md:flex-col",
         collapsed ? "w-[4.5rem]" : "w-64",
       )}
     >
