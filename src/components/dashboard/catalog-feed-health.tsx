@@ -11,6 +11,7 @@ type FeedHealth = {
   status: number;
   rowCount: number;
   checkedAt: string;
+  feedUrl?: string;
   error?: string;
 };
 
@@ -22,24 +23,46 @@ export function CatalogFeedHealth() {
     setLoading(true);
     try {
       const origin = getStorefrontOrigin();
-      const url = `${origin}/feeds/google-merchant.txt`;
-      const res = await fetch(url, { cache: "no-store" });
-      const text = await res.text();
-      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-      const rowCount = Math.max(0, lines.length - 1);
-      setHealth({
-        ok: res.ok,
-        status: res.status,
-        rowCount,
-        checkedAt: new Date().toISOString(),
-      });
+      const feedUrl = `${origin}/feeds/google-merchant.txt`;
+      const apiUrl = `${origin}/api/admin/catalog-feed-health`;
+
+      let data: FeedHealth | null = null;
+
+      try {
+        const apiRes = await fetch(apiUrl, { cache: "no-store" });
+        if (apiRes.ok) {
+          const json = (await apiRes.json()) as FeedHealth;
+          data = { ...json, feedUrl: json.feedUrl ?? feedUrl };
+        }
+      } catch {
+        // Fall back to direct feed fetch (CORS allowed on feed route).
+      }
+
+      if (!data) {
+        const res = await fetch(feedUrl, { cache: "no-store" });
+        const text = await res.text();
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        const rowCount = Math.max(0, lines.length - 1);
+        data = {
+          ok: res.ok,
+          status: res.status,
+          rowCount,
+          checkedAt: new Date().toISOString(),
+          feedUrl,
+        };
+      }
+
+      setHealth(data);
     } catch (e) {
       setHealth({
         ok: false,
         status: 0,
         rowCount: 0,
         checkedAt: new Date().toISOString(),
-        error: e instanceof Error ? e.message : "Feed check failed",
+        error:
+          e instanceof Error
+            ? `${e.message}. Check VITE_STOREFRONT_ORIGIN on the admin deployment.`
+            : "Feed check failed. Check VITE_STOREFRONT_ORIGIN on the admin deployment.",
       });
     } finally {
       setLoading(false);
@@ -54,7 +77,7 @@ export function CatalogFeedHealth() {
 
   const feedUrl = (() => {
     try {
-      return `${getStorefrontOrigin()}/feeds/google-merchant.txt`;
+      return health?.feedUrl ?? `${getStorefrontOrigin()}/feeds/google-merchant.txt`;
     } catch {
       return null;
     }
