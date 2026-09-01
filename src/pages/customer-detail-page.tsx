@@ -35,7 +35,12 @@ import {
   updateCustomerAdmin,
   type PublicUserRow,
 } from "@/lib/supabase/customers";
-import { fetchOrdersByUserIdAdmin, type OrderRow, type OrderStatus } from "@/lib/supabase/orders";
+import {
+  fetchOrdersByUserIdAdmin,
+  fetchOrdersByPhoneAdmin,
+  type OrderRow,
+  type OrderStatus,
+} from "@/lib/supabase/orders";
 import { fetchReviewsByUserIdAdmin, type ReviewAdminRow } from "@/lib/supabase/reviews-admin";
 import { fetchVoucherInstancesByPublicUserId, type VoucherInstanceRow } from "@/lib/supabase/vouchers";
 import { fetchWishlistByUserIdAdmin, type WishlistAdminRow } from "@/lib/supabase/wishlist-admin";
@@ -60,6 +65,7 @@ export function CustomerDetailPage() {
   const { customerId } = useParams<{ customerId: string }>();
   const [customer, setCustomer] = useState<PublicUserRow | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [guestOrders, setGuestOrders] = useState<OrderRow[]>([]);
   const [reviews, setReviews] = useState<ReviewAdminRow[]>([]);
   const [vouchers, setVouchers] = useState<VoucherInstanceRow[]>([]);
   const [wishlist, setWishlist] = useState<WishlistAdminRow[]>([]);
@@ -99,6 +105,16 @@ export function CustomerDetailPage() {
         });
       }
       setOrders(o);
+      if (c?.phone?.trim()) {
+        const guest = await fetchOrdersByPhoneAdmin(c.phone, {
+          limit: 50,
+          excludeUserId: customerId,
+        });
+        const linkedIds = new Set(o.map((x) => x.id));
+        setGuestOrders(guest.filter((g) => !linkedIds.has(g.id)));
+      } else {
+        setGuestOrders([]);
+      }
       setReviews(r);
       setVouchers(v);
       setWishlist(w);
@@ -377,6 +393,58 @@ export function CustomerDetailPage() {
               </TableContainer>
             )}
           </AdminListCard>
+
+          {guestOrders.length > 0 ? (
+            <AdminListCard
+              title="Guest orders (same phone)"
+              description="Checkouts placed without signing in but using this customer's phone number."
+            >
+              <TableContainer>
+                <table className="w-full min-w-[680px] text-left text-sm">
+                  <thead>
+                    <tr className={ADMIN_TABLE_HEAD}>
+                      <th className={adminTh()}>Reference</th>
+                      <th className={adminTh()}>Email</th>
+                      <th className={adminTh()}>Total</th>
+                      <th className={adminTh()}>Status</th>
+                      <th className={adminTh()}>Placed</th>
+                      <th className={adminThEnd()} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guestOrders.map((o) => (
+                      <tr key={o.id} className={ADMIN_TABLE_ROW}>
+                        <td className={adminTd("font-mono text-xs")}>
+                          {o.order_number ?? o.id.slice(0, 8)}
+                        </td>
+                        <td className={adminTd()}>
+                          <span className="max-w-[200px] truncate" title={o.email}>
+                            {o.email || "—"}
+                          </span>
+                        </td>
+                        <td className={adminTd("tabular-nums")}>
+                          {formatMinorUnits(o.total_cents, o.currency)}
+                        </td>
+                        <td className={adminTd()}>
+                          <Badge variant={orderStatusVariant(o.status)} className="capitalize">
+                            {o.status}
+                          </Badge>
+                        </td>
+                        <td className={adminTd("text-muted-foreground")}>
+                          {new Date(o.created_at).toLocaleDateString()}
+                        </td>
+                        <td className={cn(adminTd(), "text-right")}>
+                          <Button variant="ghost" size="sm" className="font-medium text-primary" asChild>
+                            <Link to={`/dashboard/orders/${o.id}`}>Open</Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableContainer>
+            </AdminListCard>
+          ) : null}
 
           <AdminListCard
             title="Reviews"

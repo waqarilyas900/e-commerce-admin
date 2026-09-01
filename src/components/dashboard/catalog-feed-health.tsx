@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ADMIN_LIST_CARD_CLASS, ADMIN_LIST_CARD_HEADER_CLASS } from "@/components/dashboard/admin-list-shell";
 import { getStorefrontOrigin } from "@/lib/storefront-api";
+import { fetchCatalogFeedWarningsAdmin, type CatalogFeedWarning } from "@/lib/supabase/catalog-feed-warnings";
 
 type FeedHealth = {
   ok: boolean;
@@ -18,6 +19,7 @@ type FeedHealth = {
 export function CatalogFeedHealth() {
   const [health, setHealth] = useState<FeedHealth | null>(null);
   const [loading, setLoading] = useState(false);
+  const [warnings, setWarnings] = useState<CatalogFeedWarning[]>([]);
 
   async function check() {
     setLoading(true);
@@ -72,6 +74,7 @@ export function CatalogFeedHealth() {
   useEffect(() => {
     queueMicrotask(() => {
       void check();
+      void fetchCatalogFeedWarningsAdmin(8).then(setWarnings);
     });
   }, []);
 
@@ -122,6 +125,23 @@ export function CatalogFeedHealth() {
               <ExternalLink className="ml-1 h-3 w-3" />
             </a>
           </Button>
+        ) : null}
+        {warnings.length > 0 ? (
+          <div className="border-t border-border/60 pt-3">
+            <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-400">
+              Catalog warnings ({warnings.length})
+            </p>
+            <ul className="max-h-40 space-y-2 overflow-y-auto text-xs text-muted-foreground">
+              {warnings.map((w) => (
+                <li key={w.id}>
+                  <span className="font-medium text-foreground">{w.label}</span>
+                  <span className="block">{w.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : health && !health.error ? (
+          <p className="text-xs text-muted-foreground">No catalog image/price warnings.</p>
         ) : null}
       </CardContent>
     </Card>

@@ -208,3 +208,76 @@ export async function fetchOrderStatusCounts(): Promise<StatusCount[]> {
     .map(([status, count]) => ({ status, count }))
     .sort((a, b) => b.count - a.count);
 }
+
+export type BestSellerRow = {
+  product_name: string;
+  sku: string;
+  units_sold: number;
+  revenue_cents: number;
+};
+
+export async function fetchBestSellers30d(limit = 10): Promise<BestSellerRow[]> {
+  if (!supabase) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const { data: orders, error: oErr } = await supabase
+    .from("orders")
+    .select("id, status")
+    .gte("created_at", since.toISOString());
+  if (oErr || !orders?.length) {
+    if (oErr) logStats("fetchBestSellers30d orders", oErr.message);
+    return [];
+  }
+  const orderIds = orders
+    .filter((o) => {
+      const s = (o as { status: string }).status;
+      return s !== "cancelled" && s !== "refunded";
+    })
+    .map((o) => (o as { id: string }).id);
+  if (orderIds.length === 0) return [];
+  const { data: items, error: iErr } = await supabase
+    .from("order_items")
+    .select("product_name_snapshot, sku_snapshot, quantity, line_subtotal_cents, order_id")
+    .in("order_id", orderIds);
+  if (iErr) {
+    logStats("fetchBestSellers30d items", iErr.message);
+    return [];
+  }
+  const map = new Map<string, BestSellerRow>();
+  for (const row of items ?? []) {
+    const r = row as {
+      product_name_snapshot: string;
+      sku_snapshot: string;
+      quantity: number;
+      line_subtotal_cents: number;
+    };
+    const key = r.sku_snapshot || r.product_name_snapshot;
+    const cur = map.get(key) ?? {
+      product_name: r.product_name_snapshot,
+      sku: r.sku_snapshot,
+      units_sold: 0,
+      revenue_cents: 0,
+    };
+    cur.units_sold += r.quantity;
+    cur.revenue_cents += r.line_subtotal_cents ?? 0;
+    map.set(key, cur);
+  }
+  return Array.from(map.values())
+    .sort((a, b) => b.units_sold - a.units_sold || b.revenue_cents - a.revenue_cents)
+    .slice(0, limit);
+}
+
+export type ActionInboxCounts = {
+  openOrders: number;
+  lowStock: number;
+  pendingReviews: number;
+};
+
+export async function fetchActionInboxCounts(): Promise<ActionInboxCounts> {
+  const stats = await fetchDashboardStats();
+  return {
+    openOrders: stats.openOrderCount ?? 0,
+    lowStock: 0,
+    pendingReviews: stats.pendingReviewCount ?? 0,
+  };
+}

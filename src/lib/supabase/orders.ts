@@ -136,11 +136,63 @@ export type OrdersPageResult = {
   total: number;
 };
 
+export type OrderDateRange = "all" | "today" | "week" | "month";
+
+function sinceIsoForDateRange(range: OrderDateRange): string | null {
+  if (range === "all") return null;
+  const d = new Date();
+  if (range === "today") {
+    d.setHours(0, 0, 0, 0);
+  } else if (range === "week") {
+    d.setDate(d.getDate() - 7);
+  } else {
+    d.setDate(d.getDate() - 30);
+  }
+  return d.toISOString();
+}
+
+function applyOrderFilters<
+  T extends {
+    eq: (col: string, val: string) => T;
+    or: (filters: string) => T;
+    gte: (col: string, val: string) => T;
+  },
+>(q: T, options: {
+  status?: OrderStatus | "all";
+  search?: string;
+  dateRange?: OrderDateRange;
+}): T {
+  if (options.status && options.status !== "all") {
+    q = q.eq("status", options.status);
+  }
+  const since = options.dateRange ? sinceIsoForDateRange(options.dateRange) : null;
+  if (since) {
+    q = q.gte("created_at", since);
+  }
+  const search = options.search?.trim();
+  if (search) {
+    const term = `%${search}%`;
+    q = q.or(
+      [
+        `order_number.ilike.${term}`,
+        `email.ilike.${term}`,
+        `phone.ilike.${term}`,
+        `first_name.ilike.${term}`,
+        `last_name.ilike.${term}`,
+        `shipping_city.ilike.${term}`,
+        `shipping_province.ilike.${term}`,
+      ].join(","),
+    );
+  }
+  return q;
+}
+
 export async function fetchOrdersAdminPaginated(options: {
   page: number;
   pageSize: number;
   status?: OrderStatus | "all";
   search?: string;
+  dateRange?: OrderDateRange;
 }): Promise<OrdersPageResult> {
   if (!supabase) return { rows: [], total: 0 };
   const pageSize = Math.min(Math.max(options.pageSize, 1), 100);
@@ -153,23 +205,7 @@ export async function fetchOrdersAdminPaginated(options: {
     .select(ORDER_SELECT, { count: "exact" })
     .order("created_at", { ascending: false });
 
-  if (options.status && options.status !== "all") {
-    q = q.eq("status", options.status);
-  }
-
-  const search = options.search?.trim();
-  if (search) {
-    const term = `%${search}%`;
-    q = q.or(
-      [
-        `order_number.ilike.${term}`,
-        `email.ilike.${term}`,
-        `phone.ilike.${term}`,
-        `first_name.ilike.${term}`,
-        `last_name.ilike.${term}`,
-      ].join(","),
-    );
-  }
+  q = applyOrderFilters(q, options);
 
   const { data, error, count } = await q.range(from, to);
   if (error) {
@@ -182,6 +218,7 @@ export async function fetchOrdersAdminPaginated(options: {
 export async function fetchOrdersAdminForExport(options?: {
   status?: OrderStatus | "all";
   search?: string;
+  dateRange?: OrderDateRange;
   limit?: number;
 }): Promise<OrderRow[]> {
   if (!supabase) return [];
@@ -191,22 +228,7 @@ export async function fetchOrdersAdminForExport(options?: {
     .select(ORDER_SELECT)
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (options?.status && options.status !== "all") {
-    q = q.eq("status", options.status);
-  }
-  const search = options?.search?.trim();
-  if (search) {
-    const term = `%${search}%`;
-    q = q.or(
-      [
-        `order_number.ilike.${term}`,
-        `email.ilike.${term}`,
-        `phone.ilike.${term}`,
-        `first_name.ilike.${term}`,
-        `last_name.ilike.${term}`,
-      ].join(","),
-    );
-  }
+  q = applyOrderFilters(q, options ?? {});
   const { data, error } = await q;
   if (error) {
     logOrders("fetchOrdersAdminForExport", error.message);
@@ -251,6 +273,59 @@ export async function fetchOrdersByUserIdAdmin(
     .limit(limit);
   if (error) {
     logOrders("fetchOrdersByUserIdAdmin", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as OrderRow[];
+}
+
+/** Guest or duplicate-profile orders matched by phone digits. */
+export async function fetchOrdersByPhoneAdmin(
+  phone: string,
+  options?: { limit?: number; excludeUserId?: string },
+): Promise<OrderRow[]> {
+  if (!supabase) return [];
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return [];
+  const limit = Math.min(options?.limit ?? 50, 100);
+  const term = `%${digits.slice(-10)}%`;
+  let q = supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .ilike("phone", term)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (options?.excludeUserId) {
+    q = q.is("user_id", null);
+  }
+  const { data, error } = await q;
+  if (error) {
+    logOrders("fetchOrdersByPhoneAdmin", error.message);
+    return [];
+  }
+  let rows = (data ?? []) as unknown as OrderRow[];
+  if (options?.excludeUserId) {
+    rows = rows.filter((o) => o.user_id !== options.excludeUserId);
+  }
+  return rows;
+}
+
+const OPEN_ORDER_STATUSES: OrderStatus[] = [
+  "pending",
+  "confirmed",
+  "paid",
+  "processing",
+];
+
+export async function fetchOpenOrdersAdmin(limit = 8): Promise<OrderRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .in("status", OPEN_ORDER_STATUSES)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    logOrders("fetchOpenOrdersAdmin", error.message);
     return [];
   }
   return (data ?? []) as unknown as OrderRow[];

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, Pencil, Printer, Trash2 } from "lucide-react";
+import { Loader2, MessageCircle, Copy, Pencil, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,8 @@ import {
 import { formatOrderStatus, orderStatusVariant } from "@/lib/order-status";
 import { formatMinorUnits } from "@/lib/format-money";
 import { supabase } from "@/lib/supabase/client";
+import { copyTextToClipboard, formatOrderDispatchText } from "@/lib/order-dispatch";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 const STATUSES: OrderStatus[] = [
   "pending",
@@ -210,6 +212,24 @@ export function OrderDetailPage() {
   }
 
   const orderRef = order?.order_number ?? orderId.slice(0, 8);
+  const isRiskyDelete =
+    order != null && (order.status === "delivered" || order.status === "shipped");
+
+  async function onCopyDispatch() {
+    if (!order) return;
+    const ok = await copyTextToClipboard(formatOrderDispatchText(order, items));
+    toast[ok ? "success" : "error"](ok ? "Order details copied." : "Copy failed.");
+  }
+
+  function onWhatsAppCustomer() {
+    if (!order) return;
+    const url = buildWhatsAppUrl(order.phone, formatOrderDispatchText(order, items));
+    if (!url) {
+      toast.error("No valid phone on this order.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <div className={ADMIN_LIST_PAGE_CLASS}>
@@ -220,6 +240,14 @@ export function OrderDetailPage() {
         actions={
           order ? (
             <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => void onCopyDispatch()}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy details
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={onWhatsAppCustomer}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                WhatsApp
+              </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => printOrderPackingSlip()}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print slip
@@ -242,9 +270,14 @@ export function OrderDetailPage() {
       <AdminConfirmDeleteDialog
         open={deleteOpen}
         onOpenChange={(o) => !deleting && setDeleteOpen(o)}
-        title="Delete this order?"
+        title={isRiskyDelete ? "Delete shipped/delivered order?" : "Delete this order?"}
         subtitle={
           <>
+            {isRiskyDelete ? (
+              <span className="mb-2 block font-medium text-destructive">
+                This order was already shipped or delivered — delete only for test/cleanup.
+              </span>
+            ) : null}
             Order <span className="font-mono font-medium text-foreground">{orderRef}</span> and all
             related line items will be removed permanently. Variant stock will be returned to inventory if not already restored.
           </>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import ReactStarsImport from "react-rating-stars-component";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminSearchField } from "@/components/dashboard/admin-search-field";
 import {
   REVIEW_MAX_FILES,
   validateReviewFiles,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/review-upload-rules";
 import { supabase } from "@/lib/supabase/client";
 import { uploadReviewMediaForReviewRow } from "@/lib/supabase/storage-config";
-import { fetchCustomersAdmin, type PublicUserRow } from "@/lib/supabase/customers";
+import { fetchCustomersAdminPaginated, type PublicUserRow } from "@/lib/supabase/customers";
 import {
   createReviewAsAdmin,
   fetchProductPicklistAdmin,
@@ -85,7 +86,11 @@ type Props = {
 export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<ProductPicklistRow[]>([]);
-  const [customers, setCustomers] = useState<PublicUserRow[]>([]);
+  const [customerResults, setCustomerResults] = useState<PublicUserRow[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerSearchDebounced, setCustomerSearchDebounced] = useState("");
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<PublicUserRow | null>(null);
   const [loadingPicklists, setLoadingPicklists] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -106,13 +111,9 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
     let cancelled = false;
     queueMicrotask(() => setLoadingPicklists(true));
     void (async () => {
-      const [prows, crows] = await Promise.all([
-        fetchProductPicklistAdmin(800),
-        fetchCustomersAdmin(500),
-      ]);
+      const prows = await fetchProductPicklistAdmin(800);
       if (cancelled) return;
       setProducts(prows);
-      setCustomers(crows);
       setLoadingPicklists(false);
     })();
     return () => {
@@ -121,11 +122,39 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
   }, [open]);
 
   useEffect(() => {
+    const t = setTimeout(() => setCustomerSearchDebounced(customerSearch), 300);
+    return () => clearTimeout(t);
+  }, [customerSearch]);
+
+  useEffect(() => {
+    if (!open || authorMode !== "registered") return;
+    let cancelled = false;
+    queueMicrotask(() => setSearchingCustomers(true));
+    void (async () => {
+      const result = await fetchCustomersAdminPaginated({
+        page: 1,
+        pageSize: 25,
+        search: customerSearchDebounced,
+      });
+      if (cancelled) return;
+      setCustomerResults(result.rows);
+      setSearchingCustomers(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, authorMode, customerSearchDebounced]);
+
+  useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
       setAuthorMode("registered");
       setProductId("");
       setUserId("");
+      setSelectedCustomer(null);
+      setCustomerSearch("");
+      setCustomerSearchDebounced("");
+      setCustomerResults([]);
       setAttributedName("");
       setAttributedEmail("");
       setRating(0);
@@ -373,22 +402,63 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
 
           {authorMode === "registered" ? (
             <div className="space-y-2">
-              <Label htmlFor="compose-user">Customer (attributed author)</Label>
-              <select
-                id="compose-user"
-                required={authorMode === "registered"}
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className={cn(selectClass, loadingPicklists && "opacity-60")}
-                disabled={loadingPicklists}
-              >
-                <option value="">Select customer…</option>
-                {customers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {displayCustomer(u)}
-                  </option>
-                ))}
-              </select>
+              <Label htmlFor="compose-user-search">Customer (attributed author)</Label>
+              {selectedCustomer ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-input bg-muted/20 px-3 py-2 text-sm">
+                  <span>{displayCustomer(selectedCustomer)}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setUserId("");
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <AdminSearchField
+                    value={customerSearch}
+                    onChange={setCustomerSearch}
+                    placeholder="Search phone or name…"
+                    aria-label="Search customers for review author"
+                  />
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-border/60">
+                    {searchingCustomers ? (
+                      <p className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        Searching…
+                      </p>
+                    ) : customerResults.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        {customerSearchDebounced.trim()
+                          ? "No customers match."
+                          : "Type to search customers."}
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-border/60">
+                        {customerResults.map((u) => (
+                          <li key={u.id}>
+                            <button
+                              type="button"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted/40"
+                              onClick={() => {
+                                setSelectedCustomer(u);
+                                setUserId(u.id);
+                              }}
+                            >
+                              {displayCustomer(u)}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <>

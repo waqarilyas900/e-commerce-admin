@@ -10,6 +10,7 @@ import { DistributionChart } from "@/components/dashboard/distribution-chart";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { LowStockAlerts } from "@/components/dashboard/low-stock-alerts";
 import { CatalogFeedHealth } from "@/components/dashboard/catalog-feed-health";
+import { DashboardActionInbox } from "@/components/dashboard/dashboard-action-inbox";
 
 export function DashboardHome() {
   return (
@@ -36,6 +37,7 @@ export function DashboardHome() {
       />
 
       <StatCards />
+      <DashboardActionInbox />
       <div className="grid min-h-0 min-w-0 gap-6 lg:grid-cols-2">
         <ActivityChart />
         <DistributionChart />

@@ -1397,3 +1397,64 @@ export async function bulkAddTagToProductsAdmin(
   await logAdminAction("bulk_add_tag", "product_tags", tagId, { count: ok });
   return { ok, failed };
 }
+
+async function uniqueProductSlug(base: string): Promise<string> {
+  if (!supabase) return base;
+  let candidate = base;
+  let n = 1;
+  for (;;) {
+    const { data } = await supabase.from("products").select("id").eq("slug", candidate).maybeSingle();
+    if (!data) return candidate;
+    n += 1;
+    candidate = `${base}-${n}`;
+    if (n > 50) return `${base}-${Date.now()}`;
+  }
+}
+
+/** Clone product as draft with new slug/SKUs — variants and gallery copied. */
+export async function duplicateProductAdmin(
+  sourceId: string,
+): Promise<{ id: string; error?: string }> {
+  const src = await fetchProductWithVariants(sourceId);
+  if (!src) return { id: "", error: "Product not found." };
+
+  const baseSlug = await uniqueProductSlug(`${src.product.slug}-copy`);
+  const payload: ProductSavePayload = {
+    collection_ids: [...src.collectionIds],
+    tag_ids: [...src.tagIds],
+    slug: baseSlug,
+    name: `${src.product.name} (copy)`,
+    short_description: src.product.short_description,
+    description: src.product.description,
+    status: "draft",
+    free_delivery: Boolean(src.product.free_delivery),
+    video_url: src.product.video_url ?? null,
+    search_keywords_extra: src.product.search_keywords_extra ?? "",
+    assets: src.assets.map((a, i) => ({
+      url: a.url,
+      kind: a.kind,
+      alt_text: a.alt_text,
+      sort_order: i,
+    })),
+    rating: null,
+    reviews_count: null,
+    stock_total: src.product.stock_total ?? 0,
+    option_definitions: src.product.option_definitions ?? [],
+  };
+
+  const variants: VariantSavePayload[] = src.variants.map((v, i) => ({
+    sku: v.sku ? `${v.sku}-C${i + 1}` : `COPY-${i + 1}`,
+    option_values: { ...v.option_values },
+    size_id: v.size_id,
+    color_id: v.color_id,
+    price: v.price,
+    compare_at_price: v.compare_at_price,
+    quantity_on_hand: v.quantity_on_hand,
+  }));
+
+  const result = await saveProductAndVariants(null, payload, variants);
+  if (result.error) return result;
+  const { logAdminAction } = await import("@/lib/audit-log");
+  await logAdminAction("duplicate", "products", result.id, { source_id: sourceId });
+  return result;
+}

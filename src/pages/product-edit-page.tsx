@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Layers, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Layers, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { AdminTextarea } from "@/components/dashboard/admin-textarea";
 import { StarRatingInput } from "@/components/dashboard/star-rating-input";
@@ -40,6 +40,7 @@ import {
   fetchTags,
   saveProductAndVariants,
   deleteProduct,
+  duplicateProductAdmin,
   type ProductSavePayload,
   type VariantSavePayload,
 } from "@/lib/supabase/catalog";
@@ -248,6 +249,7 @@ export function ProductEditPage() {
   const [colors, setColors] = useState<ColorRow[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [uploadingAssetKey, setUploadingAssetKey] = useState<string | null>(null);
   const [generatingSkuIndex, setGeneratingSkuIndex] = useState<number | null>(null);
   const [storeDisplayName, setStoreDisplayName] = useState("Store");
@@ -793,6 +795,22 @@ export function ProductEditPage() {
     navigate("/dashboard/products");
   }
 
+  async function onDuplicate() {
+    if (isNew || !productId || !supabase) return;
+    setDuplicating(true);
+    try {
+      const { id, error } = await duplicateProductAdmin(productId);
+      if (error || !id) {
+        toast.error(error ?? "Could not duplicate product.");
+        return;
+      }
+      toast.success("Product duplicated as draft.");
+      navigate(`/dashboard/products/${id}`);
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
   if (!supabase) {
     return (
       <Card className="max-w-lg border-dashed border-amber-500/40 bg-amber-500/6">
@@ -869,6 +887,20 @@ export function ProductEditPage() {
           isNew
             ? "Parent listing plus sellable SKUs. Set stock per variant row, or one total for a single-SKU product."
             : "Update the parent listing, media, and variant SKUs."
+        }
+        actions={
+          !isNew && productId ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={duplicating || saving}
+              onClick={() => void onDuplicate()}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              {duplicating ? "Duplicating…" : "Duplicate"}
+            </Button>
+          ) : null
         }
       />
 

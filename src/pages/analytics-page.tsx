@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ActivityChart, RevenueChart } from "@/components/dashboard/activity-chart";
 import { DistributionChart } from "@/components/dashboard/distribution-chart";
+import { BestSellersTable } from "@/components/dashboard/best-sellers-table";
 import {
   ADMIN_LIST_CARD_CLASS,
   ADMIN_LIST_CARD_HEADER_CLASS,
@@ -125,6 +126,8 @@ export function AnalyticsPage() {
       </div>
 
       <DistributionChart />
+
+      <BestSellersTable />
     </div>
   );
 }
