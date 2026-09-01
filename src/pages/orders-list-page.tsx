@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Copy, Download, MessageCircle, Package, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -67,19 +68,36 @@ const DATE_FILTER: Array<{ value: OrderDateRange; label: string }> = [
 
 const DELIVERED_LIKE: OrderStatus[] = ["delivered", "shipped"];
 
+function parseStatusParam(raw: string | null): OrderStatus | "all" {
+  if (!raw) return "all";
+  const hit = STATUS_FILTER.find((f) => f.value === raw);
+  return hit ? hit.value : "all";
+}
+
 export function OrdersListPage() {
+  const [searchParams] = useSearchParams();
   const initialPrefs = loadOrdersListPrefs();
+  const statusFromUrl = useMemo(
+    () => parseStatusParam(searchParams.get("status")),
+    [searchParams],
+  );
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [filter, setFilter] = useState<OrderStatus | "all">(initialPrefs.status);
+  const [filter, setFilter] = useState<OrderStatus | "all">(
+    statusFromUrl !== "all" ? statusFromUrl : initialPrefs.status,
+  );
   const [dateRange, setDateRange] = useState<OrderDateRange>(initialPrefs.dateRange);
   const [query, setQuery] = useState(initialPrefs.search);
   const [searchDebounced, setSearchDebounced] = useState(initialPrefs.search);
   const [pendingDelete, setPendingDelete] = useState<OrderRow | null>(null);
   const [busyDelete, setBusyDelete] = useState(false);
+
+  useEffect(() => {
+    if (statusFromUrl !== "all") setFilter(statusFromUrl);
+  }, [statusFromUrl]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(query), 300);
@@ -175,50 +193,6 @@ export function OrdersListPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  const filterButtons = (
-    <div className="flex w-full flex-col gap-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <AdminFilterBar className="flex-1 flex-wrap">
-          {STATUS_FILTER.map((f) => (
-            <Button
-              key={f.value}
-              type="button"
-              size="sm"
-              variant={filter === f.value ? "default" : "ghost"}
-              className={cn(
-                "rounded-lg",
-                filter === f.value ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
-              )}
-              onClick={() => setFilter(f.value)}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </AdminFilterBar>
-        <NativeSelect
-          value={dateRange}
-          onChange={(e) => setDateRange(e.target.value as OrderDateRange)}
-          className="h-9 w-full text-sm lg:w-40"
-          aria-label="Date range"
-        >
-          {DATE_FILTER.map((d) => (
-            <option key={d.value} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
-      <div className="relative w-full min-w-[min(100%,14rem)] lg:max-w-sm">
-        <AdminSearchField
-          value={query}
-          onChange={setQuery}
-          placeholder="Search ref, phone, city, email…"
-          aria-label="Search orders"
-        />
-      </div>
-    </div>
-  );
-
   const isRiskyDelete =
     pendingDelete != null && DELIVERED_LIKE.includes(pendingDelete.status);
 
@@ -238,8 +212,50 @@ export function OrdersListPage() {
       <AdminListCard
         title="Order desk"
         description={`${total.toLocaleString()} order${total === 1 ? "" : "s"} matching filters.`}
-        headerRight={filterButtons}
       >
+        <div className="mb-5 space-y-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 flex-1 overflow-x-auto pb-1">
+              <AdminFilterBar className="w-max min-w-full flex-nowrap sm:flex-wrap">
+                {STATUS_FILTER.map((f) => (
+                  <Button
+                    key={f.value}
+                    type="button"
+                    size="sm"
+                    variant={filter === f.value ? "default" : "ghost"}
+                    className={cn(
+                      "shrink-0 rounded-lg",
+                      filter === f.value ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setFilter(f.value)}
+                  >
+                    {f.label}
+                  </Button>
+                ))}
+              </AdminFilterBar>
+            </div>
+            <NativeSelect
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value as OrderDateRange)}
+              className="h-9 w-full shrink-0 text-sm xl:w-44"
+              aria-label="Date range"
+            >
+              {DATE_FILTER.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <AdminSearchField
+            value={query}
+            onChange={setQuery}
+            placeholder="Search ref, phone, city, email…"
+            aria-label="Search orders"
+            className="max-w-md"
+          />
+        </div>
+
         <AdminConfirmDeleteDialog
           open={pendingDelete !== null}
           onOpenChange={(o) => !o && !busyDelete && setPendingDelete(null)}
@@ -271,7 +287,7 @@ export function OrdersListPage() {
         ) : (
           <>
             <TableContainer>
-              <table className="w-full min-w-[960px] text-left text-sm">
+              <table className="w-full min-w-[1040px] text-left text-sm">
                 <thead>
                   <tr className={ADMIN_TABLE_HEAD}>
                     <th className={adminTh()}>Reference</th>
@@ -311,7 +327,7 @@ export function OrdersListPage() {
                       <td className={adminTd("text-muted-foreground")}>
                         {new Date(o.created_at).toLocaleString()}
                       </td>
-                      <td className={adminTd()}>
+                      <td className={cn(adminTd(), "whitespace-nowrap")}>
                         <AdminRowActions>
                           <AdminRowEditLink to={`/dashboard/orders/${o.id}`}>Open</AdminRowEditLink>
                           <Button

@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { AdminConfirmDeleteDialog } from "@/components/dashboard/admin-confirm-delete-dialog";
 import { AdminDetailField, AdminDetailGrid } from "@/components/dashboard/admin-detail-field";
 import { AdminTextarea } from "@/components/dashboard/admin-textarea";
-import { OrderPackingSlip, printOrderPackingSlip } from "@/components/dashboard/order-packing-slip";
+import { OrderPackingSlip, printOrderPackingSlip, type PackingSlipStoreInfo } from "@/components/dashboard/order-packing-slip";
 import { toast } from "sonner";
 import {
   ADMIN_LIST_CARD_CLASS,
@@ -50,6 +50,7 @@ import { formatMinorUnits } from "@/lib/format-money";
 import { supabase } from "@/lib/supabase/client";
 import { copyTextToClipboard, formatOrderDispatchText } from "@/lib/order-dispatch";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { fetchStoreSettings } from "@/lib/supabase/store-settings";
 
 const STATUSES: OrderStatus[] = [
   "pending",
@@ -90,6 +91,7 @@ export function OrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [slipStore, setSlipStore] = useState<PackingSlipStoreInfo | undefined>();
 
   const load = useCallback(async () => {
     if (!orderId || !supabase) {
@@ -133,6 +135,17 @@ export function OrderDetailPage() {
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    void fetchStoreSettings().then(({ row }) => {
+      if (!row) return;
+      setSlipStore({
+        storeName: row.store_name,
+        supportPhone: row.footer_phone?.trim() || undefined,
+        supportEmail: row.support_email?.trim() || undefined,
+      });
+    });
+  }, []);
 
   async function onSaveStatus() {
     if (!orderId || !order || !nextStatus || nextStatus === order.status) {
@@ -295,7 +308,7 @@ export function OrderDetailPage() {
         <p className="text-sm text-muted-foreground">Order not found.</p>
       ) : (
         <>
-          <OrderPackingSlip order={order} items={items} />
+          <OrderPackingSlip order={order} items={items} store={slipStore} />
 
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className={cn(ADMIN_LIST_CARD_CLASS, "lg:col-span-2")}>
