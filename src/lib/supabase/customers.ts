@@ -71,3 +71,27 @@ export async function fetchOrderCountByUserIds(
   }
   return map;
 }
+
+export type CustomerUpdatePatch = {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+};
+
+export async function updateCustomerAdmin(
+  id: string,
+  patch: CustomerUpdatePatch,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const { error } = await supabase
+    .from("users")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    logCustomers("updateCustomerAdmin", error.message);
+    return { ok: false, error: error.message };
+  }
+  const { logAdminAction } = await import("@/lib/audit-log");
+  await logAdminAction("update", "users", id, patch as Record<string, unknown>);
+  return { ok: true };
+}

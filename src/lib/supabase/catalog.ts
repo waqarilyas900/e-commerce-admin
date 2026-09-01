@@ -1,3 +1,4 @@
+import { buildProductSearchKeywords } from "@/lib/product-search-keywords";
 import { supabase } from "@/lib/supabase/client";
 import { ADMIN_MSG_CATALOG_UNAVAILABLE } from "@/lib/admin-user-messages";
 import type {
@@ -144,7 +145,7 @@ export async function fetchProductsWithVariantCount(): Promise<
   const { data: products, error: pErr } = await supabase
     .from("products")
     .select(
-      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, video_url, created_at, updated_at",
+      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, video_url, search_keywords, search_keywords_extra, created_at, updated_at",
     )
     .order("updated_at", { ascending: false });
   if (pErr || !products) {
@@ -241,7 +242,7 @@ export async function fetchProductWithVariants(
   const { data: product, error: pErr } = await supabase
     .from("products")
     .select(
-      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, video_url, created_at, updated_at",
+      "id, slug, name, short_description, description, status, images, tags, rating, reviews_count, stock_total, free_delivery, video_url, search_keywords, search_keywords_extra, created_at, updated_at",
     )
     .eq("id", productId)
     .maybeSingle();
@@ -402,6 +403,8 @@ export type ProductSavePayload = {
   free_delivery: boolean;
   /** Sticky promo video URL for storefront (YouTube / Facebook / Instagram / MP4). Empty clears. */
   video_url: string | null;
+  /** Manual extra search terms (merged into search_keywords on save). */
+  search_keywords_extra: string;
   /** PDP: labels and presentation per `option_values` key (normalized table). */
   option_definitions: VariantOptionSchemaEntry[];
 };
@@ -670,15 +673,17 @@ export async function saveProductAndVariants(
     .map((a) => a.url.trim());
 
   let tagNames: string[] = [];
+  let tagLabels: string[] = [];
   if (tag_ids.length && supabase) {
     const { data: tagRows, error: tagFetchErr } = await supabase
       .from("tags")
-      .select("name")
+      .select("name, label")
       .in("id", tag_ids);
     if (tagFetchErr) {
       return { id: "", error: tagFetchErr.message };
     }
     tagNames = (tagRows ?? []).map((r: { name: string }) => r.name);
+    tagLabels = (tagRows ?? []).map((r: { name: string; label: string }) => r.label || r.name);
   }
 
   // Preserve existing metadata/system tags (e.g. daraz:..., rating_breakdown:...) on update
@@ -700,8 +705,19 @@ export async function saveProductAndVariants(
     }
   }
 
+  const search_keywords = buildProductSearchKeywords({
+    name: productRest.name,
+    slug: productRest.slug,
+    shortDescription: productRest.short_description,
+    description: productRest.description,
+    tagLabels,
+    skus: variants.map((v) => v.sku).filter(Boolean),
+    extra: product.search_keywords_extra,
+  });
+
   const row = {
     ...productRest,
+    search_keywords,
     images: imageUrls,
     tags: tagNames,
     updated_at: new Date().toISOString(),
@@ -1341,4 +1357,43 @@ export async function deleteHomePageSection(
   if (!supabase) return ADMIN_MSG_CATALOG_UNAVAILABLE;
   const { error } = await supabase.from("home_page_sections").delete().eq("id", sectionId);
   return error?.message;
+}
+
+export async function bulkUpdateProductStatusAdmin(
+  productIds: string[],
+  status: "active" | "draft",
+): Promise<{ ok: number; failed: number }> {
+  if (!supabase || productIds.length === 0) return { ok: 0, failed: 0 };
+  let ok = 0;
+  let failed = 0;
+  for (const id of productIds) {
+    const { error } = await supabase
+      .from("products")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) failed += 1;
+    else ok += 1;
+  }
+  const { logAdminAction } = await import("@/lib/audit-log");
+  await logAdminAction("bulk_update_status", "products", null, { status, count: ok });
+  return { ok, failed };
+}
+
+export async function bulkAddTagToProductsAdmin(
+  productIds: string[],
+  tagId: string,
+): Promise<{ ok: number; failed: number }> {
+  if (!supabase || productIds.length === 0 || !tagId) return { ok: 0, failed: 0 };
+  let ok = 0;
+  let failed = 0;
+  for (const productId of productIds) {
+    const { error } = await supabase
+      .from("product_tags")
+      .upsert({ product_id: productId, tag_id: tagId }, { onConflict: "product_id,tag_id" });
+    if (error) failed += 1;
+    else ok += 1;
+  }
+  const { logAdminAction } = await import("@/lib/audit-log");
+  await logAdminAction("bulk_add_tag", "product_tags", tagId, { count: ok });
+  return { ok, failed };
 }

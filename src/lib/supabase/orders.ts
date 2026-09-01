@@ -35,6 +35,7 @@ export type OrderRow = {
   shipping_province: string;
   payment_method: PaymentMethod;
   customer_note: string;
+  admin_internal_note: string;
   /** Point-in-time JSON from checkout (e.g. delivery rules used). */
   checkout_snapshot: Record<string, unknown>;
   created_at: string;
@@ -88,6 +89,7 @@ const ORDER_SELECT = [
   "shipping_province",
   "payment_method",
   "customer_note",
+  "admin_internal_note",
   "checkout_snapshot",
   "created_at",
   "updated_at",
@@ -96,6 +98,92 @@ const ORDER_SELECT = [
 function logOrders(op: string, message: string | undefined) {
   if (!message) return;
   console.error(`[orders] ${op}`, message);
+}
+
+import { logAdminAction } from "@/lib/audit-log";
+
+export type OrdersPageResult = {
+  rows: OrderRow[];
+  total: number;
+};
+
+export async function fetchOrdersAdminPaginated(options: {
+  page: number;
+  pageSize: number;
+  status?: OrderStatus | "all";
+  search?: string;
+}): Promise<OrdersPageResult> {
+  if (!supabase) return { rows: [], total: 0 };
+  const pageSize = Math.min(Math.max(options.pageSize, 1), 100);
+  const page = Math.max(options.page, 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let q = supabase
+    .from("orders")
+    .select(ORDER_SELECT, { count: "exact" })
+    .order("created_at", { ascending: false });
+
+  if (options.status && options.status !== "all") {
+    q = q.eq("status", options.status);
+  }
+
+  const search = options.search?.trim();
+  if (search) {
+    const term = `%${search}%`;
+    q = q.or(
+      [
+        `order_number.ilike.${term}`,
+        `email.ilike.${term}`,
+        `phone.ilike.${term}`,
+        `first_name.ilike.${term}`,
+        `last_name.ilike.${term}`,
+      ].join(","),
+    );
+  }
+
+  const { data, error, count } = await q.range(from, to);
+  if (error) {
+    logOrders("fetchOrdersAdminPaginated", error.message);
+    return { rows: [], total: 0 };
+  }
+  return { rows: (data ?? []) as unknown as OrderRow[], total: count ?? 0 };
+}
+
+export async function fetchOrdersAdminForExport(options?: {
+  status?: OrderStatus | "all";
+  search?: string;
+  limit?: number;
+}): Promise<OrderRow[]> {
+  if (!supabase) return [];
+  const limit = Math.min(options?.limit ?? 5000, 5000);
+  let q = supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (options?.status && options.status !== "all") {
+    q = q.eq("status", options.status);
+  }
+  const search = options?.search?.trim();
+  if (search) {
+    const term = `%${search}%`;
+    q = q.or(
+      [
+        `order_number.ilike.${term}`,
+        `email.ilike.${term}`,
+        `phone.ilike.${term}`,
+        `first_name.ilike.${term}`,
+        `last_name.ilike.${term}`,
+      ].join(","),
+    );
+  }
+  const { data, error } = await q;
+  if (error) {
+    logOrders("fetchOrdersAdminForExport", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as OrderRow[];
 }
 
 export async function fetchOrdersAdmin(options?: {
@@ -212,6 +300,52 @@ export async function deleteOrderAdmin(
     logOrders("deleteOrderAdmin", error.message);
     return { ok: false, error: error.message };
   }
+  await logAdminAction("delete", "orders", orderId);
+  return { ok: true };
+}
+
+export async function updateOrderInternalNoteAdmin(
+  orderId: string,
+  note: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const { error } = await supabase
+    .from("orders")
+    .update({ admin_internal_note: note.trim(), updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+  if (error) {
+    logOrders("updateOrderInternalNoteAdmin", error.message);
+    return { ok: false, error: error.message };
+  }
+  await logAdminAction("update_internal_note", "orders", orderId);
+  return { ok: true };
+}
+
+export type OrderShippingPatch = {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  shipping_street?: string;
+  shipping_city?: string;
+  shipping_postal_code?: string;
+  shipping_province?: string;
+};
+
+export async function updateOrderShippingAdmin(
+  orderId: string,
+  patch: OrderShippingPatch,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const { error } = await supabase
+    .from("orders")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+  if (error) {
+    logOrders("updateOrderShippingAdmin", error.message);
+    return { ok: false, error: error.message };
+  }
+  await logAdminAction("update_shipping", "orders", orderId, patch as Record<string, unknown>);
   return { ok: true };
 }
 
@@ -239,5 +373,6 @@ export async function updateOrderStatusAdmin(
     logOrders("order_status_history insert", hErr.message);
     return { ok: false, error: hErr.message };
   }
+  await logAdminAction("update_status", "orders", orderId, { status: nextStatus });
   return { ok: true };
 }

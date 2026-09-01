@@ -22,7 +22,10 @@ import {
   AdminRowEditLink,
 } from "@/components/dashboard/admin-list-shell";
 import {
+  bulkAddTagToProductsAdmin,
+  bulkUpdateProductStatusAdmin,
   fetchProductsWithVariantCount,
+  fetchTags,
   type ProductCatalogTagRef,
 } from "@/lib/supabase/catalog";
 import type { ProductRow } from "@/lib/supabase/catalog-types";
@@ -35,6 +38,10 @@ export function ProductsListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTagId, setBulkTagId] = useState("");
+  const [allTags, setAllTags] = useState<Awaited<ReturnType<typeof fetchTags>>>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const initialTag = searchParams.get("tag") || "";
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,6 +75,7 @@ export function ProductsListPage() {
   useEffect(() => {
     queueMicrotask(() => {
       void load();
+      void fetchTags().then(setAllTags);
     });
   }, []);
 
@@ -101,7 +109,12 @@ export function ProductsListPage() {
         const q = searchQuery.toLowerCase().trim();
         const matchesName = p.name.toLowerCase().includes(q);
         const matchesSlug = (p.slug || "").toLowerCase().includes(q);
-        if (!matchesName && !matchesSlug) return false;
+        const matchesShort = (p.short_description || "").toLowerCase().includes(q);
+        const matchesDesc = (p.description || "").toLowerCase().includes(q);
+        const matchesKeywords = (p.search_keywords || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesSlug && !matchesShort && !matchesDesc && !matchesKeywords) {
+          return false;
+        }
       }
       return true;
     });
@@ -132,6 +145,59 @@ export function ProductsListPage() {
   }
 
   const isFiltered = Boolean(searchQuery.trim() || selectedTag || selectedStatus !== "all");
+
+  const allFilteredSelected =
+    filteredRows.length > 0 && filteredRows.every((p) => selectedIds.has(p.id));
+
+  function toggleSelectAll() {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRows.map((p) => p.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function runBulkStatus(status: "active" | "draft") {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    const res = await bulkUpdateProductStatusAdmin(ids, status);
+    setBulkBusy(false);
+    if (res.ok === 0) {
+      toast.error("Bulk update failed.");
+      return;
+    }
+    toast.success(`Updated ${res.ok} product${res.ok === 1 ? "" : "s"} to ${status}.`);
+    setSelectedIds(new Set());
+    await load();
+  }
+
+  async function runBulkAddTag() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || !bulkTagId) {
+      toast.error("Select products and a tag.");
+      return;
+    }
+    setBulkBusy(true);
+    const res = await bulkAddTagToProductsAdmin(ids, bulkTagId);
+    setBulkBusy(false);
+    if (res.ok === 0) {
+      toast.error("Bulk tag add failed.");
+      return;
+    }
+    toast.success(`Tagged ${res.ok} product${res.ok === 1 ? "" : "s"}.`);
+    setSelectedIds(new Set());
+    await load();
+  }
 
   return (
     <div className={ADMIN_LIST_PAGE_CLASS}>
@@ -167,15 +233,68 @@ export function ProductsListPage() {
               </Link>
             </Button>
           </EmptyState>
-        ) : (
-          <div className="space-y-4">
-            {/* Filter Toolbar */}
+            ) : (
+              <div className="space-y-4">
+                {selectedIds.size > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                    <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkBusy}
+                      onClick={() => void runBulkStatus("active")}
+                    >
+                      Set active
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkBusy}
+                      onClick={() => void runBulkStatus("draft")}
+                    >
+                      Set draft
+                    </Button>
+                    <NativeSelect
+                      value={bulkTagId}
+                      onChange={(e) => setBulkTagId(e.target.value)}
+                      className="h-8 w-40 text-xs"
+                      aria-label="Tag to add"
+                    >
+                      <option value="">Add tag…</option>
+                      {allTags.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={bulkBusy || !bulkTagId}
+                      onClick={() => void runBulkAddTag()}
+                    >
+                      Apply tag
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedIds(new Set())}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                ) : null}
+
+                {/* Filter Toolbar */}
             <div className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/20 p-3.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-2.5">
                 <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search by name or slug…"
+                    placeholder="Search by title, description, slug, or keywords…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-9 pl-9 text-sm"
@@ -263,6 +382,15 @@ export function ProductsListPage() {
                 <table className="w-full min-w-[880px] text-left text-sm">
                   <thead>
                     <tr className={ADMIN_TABLE_HEAD}>
+                      <th className={adminTh("w-10")}>
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all on page"
+                          className="h-4 w-4 rounded border-border"
+                        />
+                      </th>
                       <th className={adminTh()}>Name</th>
                       <th className={adminTh()}>Slug</th>
                       <th className={adminTh()}>Status</th>
@@ -274,6 +402,15 @@ export function ProductsListPage() {
                   <tbody>
                     {filteredRows.map((p) => (
                       <tr key={p.id} className={ADMIN_TABLE_ROW}>
+                        <td className={adminTd()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(p.id)}
+                            onChange={() => toggleSelect(p.id)}
+                            aria-label={`Select ${p.name}`}
+                            className="h-4 w-4 rounded border-border"
+                          />
+                        </td>
                         <td className={adminTd("font-medium text-foreground")}>{p.name}</td>
                         <td className={adminTd("font-mono text-xs text-muted-foreground")}>
                           {p.slug}

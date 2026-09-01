@@ -53,6 +53,8 @@ import { NewsletterCampaignDetailPage } from "@/pages/newsletter-campaign-detail
 import { FOOTER_DASHBOARD_BASE } from "@/config/footer-dashboard";
 import { FooterUpdatesPage } from "@/pages/footer-updates-page";
 import { PolicyEditPage } from "@/pages/policy-edit-page";
+import { AbandonedCartsPage } from "@/pages/abandoned-carts-page";
+import { AuditLogPage } from "@/pages/audit-log-page";
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -144,6 +146,8 @@ function AppRoutes() {
           <Route path="/dashboard/vouchers/:voucherId" element={<VoucherEditPage />} />
           <Route path="/dashboard/orders" element={<OrdersListPage />} />
           <Route path="/dashboard/orders/:orderId" element={<OrderDetailPage />} />
+          <Route path="/dashboard/abandoned-carts" element={<AbandonedCartsPage />} />
+          <Route path="/dashboard/audit-log" element={<AuditLogPage />} />
           <Route path="/dashboard/reviews" element={<ReviewsListPage />} />
           <Route path="/dashboard/contact-inquiries" element={<ContactInquiriesListPage />} />
           <Route path="/dashboard/contact-inquiries/:inquiryId" element={<ContactInquiryDetailPage />} />

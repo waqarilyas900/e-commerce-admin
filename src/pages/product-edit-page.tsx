@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, Layers, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { AdminTextarea } from "@/components/dashboard/admin-textarea";
 import { StarRatingInput } from "@/components/dashboard/star-rating-input";
 import { toast } from "sonner";
 import { ProductDescriptionEditor } from "@/components/dashboard/product-description-editor";
@@ -271,6 +272,7 @@ export function ProductEditPage() {
   const [assets, setAssets] = useState<AssetForm[]>([newAssetRow()]);
   const [catalogTags, setCatalogTags] = useState<TagRow[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(() => new Set());
+  const [searchKeywordsExtra, setSearchKeywordsExtra] = useState("");
   const [rating, setRating] = useState(0);
   const [reviewsCount, setReviewsCount] = useState("");
   /** Total units for simple (single-SKU) products; matrix totals are the sum of per-variant stock. */
@@ -343,6 +345,7 @@ export function ProductEditPage() {
       setSlugDraft(product.slug ?? "");
       setShortDescription(product.short_description);
       setDescription(product.description);
+      setSearchKeywordsExtra(product.search_keywords_extra ?? "");
       setStatus(product.status);
       setFreeDelivery(Boolean(product.free_delivery));
       setVideoUrl((product.video_url ?? "").trim());
@@ -712,6 +715,7 @@ export function ProductEditPage() {
       name: name.trim(),
       short_description: shortDescription.trim(),
       description: description.trim(),
+      search_keywords_extra: searchKeywordsExtra.trim(),
       status,
       free_delivery: freeDelivery,
       video_url: videoUrl.trim() || null,
@@ -1784,9 +1788,23 @@ export function ProductEditPage() {
 
         <ProductFormSection
           step={6}
-          title="Tags & social proof"
-          description="Tags power search and tag-based collections. Rating and review count display on the storefront when set."
+          title="Tags & search"
+          description="Storefront search matches product title, descriptions, tags, SKUs, and the extra keywords below."
         >
+          <div className="space-y-2">
+            <Label htmlFor="product-search-keywords">Extra search keywords</Label>
+            <AdminTextarea
+              id="product-search-keywords"
+              value={searchKeywordsExtra}
+              onChange={(e) => setSearchKeywordsExtra(e.target.value)}
+              rows={4}
+              placeholder="e.g. presser foot, sewing machine attachment, zipper foot, daraz alternative"
+            />
+            <p className="text-xs text-muted-foreground">
+              Comma or line-separated terms shoppers might type. On save we also auto-add the product
+              name, slug, tags, SKUs, and description words.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="product-tags-multiselect">Tags</Label>
             <TagMultiSelect

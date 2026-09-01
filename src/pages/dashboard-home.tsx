@@ -8,6 +8,8 @@ import { StatCards } from "@/components/dashboard/stat-cards";
 import { ActivityChart } from "@/components/dashboard/activity-chart";
 import { DistributionChart } from "@/components/dashboard/distribution-chart";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { LowStockAlerts } from "@/components/dashboard/low-stock-alerts";
+import { CatalogFeedHealth } from "@/components/dashboard/catalog-feed-health";
 
 export function DashboardHome() {
   return (
@@ -37,6 +39,10 @@ export function DashboardHome() {
       <div className="grid min-h-0 min-w-0 gap-6 lg:grid-cols-2">
         <ActivityChart />
         <DistributionChart />
+      </div>
+      <div className="grid min-h-0 min-w-0 gap-6 lg:grid-cols-2">
+        <LowStockAlerts />
+        <CatalogFeedHealth />
       </div>
       <RecentActivity />
     </div>

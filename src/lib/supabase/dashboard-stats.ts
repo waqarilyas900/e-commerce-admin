@@ -148,3 +148,63 @@ export async function fetchOrdersAggregatesSince(
     orderCount > 0 ? Math.round(revenueCents / orderCount) : 0;
   return { orderCount, revenueCents, avgOrderCents };
 }
+
+export type DailyOrderPoint = {
+  date: string;
+  orders: number;
+  revenueCents: number;
+};
+
+export async function fetchDailyOrderStats(days = 30): Promise<DailyOrderPoint[]> {
+  if (!supabase) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const { data, error } = await supabase
+    .from("orders")
+    .select("created_at, total_cents, status")
+    .gte("created_at", since.toISOString());
+  if (error) {
+    logStats("fetchDailyOrderStats", error.message);
+    return [];
+  }
+  const map = new Map<string, { orders: number; revenueCents: number }>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - (days - 1 - i));
+    const key = d.toISOString().slice(0, 10);
+    map.set(key, { orders: 0, revenueCents: 0 });
+  }
+  for (const row of data ?? []) {
+    const r = row as { created_at: string; total_cents: number; status: string };
+    if (r.status === "cancelled" || r.status === "refunded") continue;
+    const key = r.created_at.slice(0, 10);
+    const bucket = map.get(key);
+    if (!bucket) continue;
+    bucket.orders += 1;
+    bucket.revenueCents += r.total_cents ?? 0;
+  }
+  return Array.from(map.entries()).map(([date, v]) => ({
+    date,
+    orders: v.orders,
+    revenueCents: v.revenueCents,
+  }));
+}
+
+export type StatusCount = { status: string; count: number };
+
+export async function fetchOrderStatusCounts(): Promise<StatusCount[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("orders").select("status");
+  if (error) {
+    logStats("fetchOrderStatusCounts", error.message);
+    return [];
+  }
+  const map = new Map<string, number>();
+  for (const row of data ?? []) {
+    const s = (row as { status: string }).status;
+    map.set(s, (map.get(s) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+}

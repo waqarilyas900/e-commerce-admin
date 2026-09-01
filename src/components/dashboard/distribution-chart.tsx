@@ -1,11 +1,5 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { useEffect, useState } from "react";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -15,22 +9,27 @@ import {
 } from "@/components/ui/card";
 import { ADMIN_LIST_CARD_CLASS, ADMIN_LIST_CARD_HEADER_CLASS } from "@/components/dashboard/admin-list-shell";
 import { ChartContainer } from "@/components/dashboard/chart-container";
+import { fetchOrderStatusCounts } from "@/lib/supabase/dashboard-stats";
+import { formatOrderStatus } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
 
-const categories = [
-  { name: "Accessories", count: 420 },
-  { name: "Peripherals", count: 310 },
-  { name: "Displays", count: 280 },
-  { name: "Audio", count: 190 },
-  { name: "Other", count: 95 },
-];
-
 export function DistributionChart() {
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchOrderStatusCounts>>>([]);
+
+  useEffect(() => {
+    void fetchOrderStatusCounts().then(setData);
+  }, []);
+
+  const chartData = data.map((d) => ({
+    name: formatOrderStatus(d.status),
+    count: d.count,
+  }));
+
   return (
     <Card className={cn(ADMIN_LIST_CARD_CLASS, "min-h-[320px]")}>
       <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
-        <CardTitle>Distribution</CardTitle>
-        <CardDescription>Illustrative mix by product type (preview)</CardDescription>
+        <CardTitle>Orders by status</CardTitle>
+        <CardDescription>Live breakdown from all orders in the database.</CardDescription>
       </CardHeader>
       <CardContent className="w-full min-w-0 overflow-hidden pl-0">
         <ChartContainer>
@@ -38,14 +37,10 @@ export function DistributionChart() {
             <BarChart
               width={width}
               height={height}
-              data={categories}
+              data={chartData}
               margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="stroke-border"
-                vertical={false}
-              />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 10 }}
@@ -55,15 +50,8 @@ export function DistributionChart() {
                 angle={-12}
                 textAnchor="end"
                 height={56}
-                className="text-muted-foreground"
               />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                className="text-muted-foreground"
-                width={36}
-              />
+              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
               <Tooltip
                 contentStyle={{
                   borderRadius: "8px",
@@ -71,12 +59,7 @@ export function DistributionChart() {
                   background: "hsl(var(--popover))",
                 }}
               />
-              <Bar
-                dataKey="count"
-                fill="hsl(var(--primary))"
-                radius={[6, 6, 0, 0]}
-                name="Units"
-              />
+              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name="Orders" />
             </BarChart>
           )}
         </ChartContainer>

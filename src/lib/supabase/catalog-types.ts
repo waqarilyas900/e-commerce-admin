@@ -84,6 +84,10 @@ export type ProductRow = {
   free_delivery?: boolean | null;
   /** Sticky promo / reel URL (YouTube, Facebook, Instagram, or direct MP4). */
   video_url?: string | null;
+  /** Denormalized storefront search terms (auto + manual). */
+  search_keywords?: string;
+  /** Admin manual search extras merged on save. */
+  search_keywords_extra?: string;
   /** From `product_option_definitions`; set by `fetchProductWithVariants` only. */
   option_definitions?: VariantOptionSchemaEntry[];
   created_at: string;

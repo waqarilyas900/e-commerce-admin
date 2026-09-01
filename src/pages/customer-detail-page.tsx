@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, Pencil, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -30,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   fetchCustomerByIdAdmin,
+  updateCustomerAdmin,
   type PublicUserRow,
 } from "@/lib/supabase/customers";
 import { fetchOrdersByUserIdAdmin, type OrderRow, type OrderStatus } from "@/lib/supabase/orders";
@@ -61,6 +64,12 @@ export function CustomerDetailPage() {
   const [vouchers, setVouchers] = useState<VoucherInstanceRow[]>([]);
   const [wishlist, setWishlist] = useState<WishlistAdminRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ first_name: "", last_name: "", phone: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const firstNameId = useId();
+  const lastNameId = useId();
+  const phoneId = useId();
 
   const load = useCallback(async () => {
     if (!customerId) {
@@ -82,6 +91,13 @@ export function CustomerDetailPage() {
         fetchWishlistByUserIdAdmin(customerId, 80),
       ]);
       setCustomer(c);
+      if (c) {
+        setEditForm({
+          first_name: c.first_name,
+          last_name: c.last_name,
+          phone: c.phone ?? "",
+        });
+      }
       setOrders(o);
       setReviews(r);
       setVouchers(v);
@@ -98,6 +114,20 @@ export function CustomerDetailPage() {
       void load();
     });
   }, [load]);
+
+  async function onSaveProfile() {
+    if (!customerId) return;
+    setSavingProfile(true);
+    const res = await updateCustomerAdmin(customerId, editForm);
+    setSavingProfile(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "Save failed.");
+      return;
+    }
+    toast.success("Customer profile updated.");
+    setEditing(false);
+    await load();
+  }
 
   useEffect(() => {
     if (!customerId) {
@@ -245,6 +275,54 @@ export function CustomerDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card className={ADMIN_LIST_CARD_CLASS}>
+            <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base">Edit profile</CardTitle>
+                  <CardDescription>Update name and phone for support cases.</CardDescription>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  {editing ? "Cancel" : "Edit"}
+                </Button>
+              </div>
+            </CardHeader>
+            {editing ? (
+              <CardContent className={cn(ADMIN_LIST_CARD_CONTENT_CLASS, "grid gap-4 sm:grid-cols-2")}>
+                <div className="space-y-2">
+                  <Label htmlFor={firstNameId}>First name</Label>
+                  <Input
+                    id={firstNameId}
+                    value={editForm.first_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, first_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={lastNameId}>Last name</Label>
+                  <Input
+                    id={lastNameId}
+                    value={editForm.last_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, last_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor={phoneId}>Phone</Label>
+                  <Input
+                    id={phoneId}
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Button type="button" size="sm" disabled={savingProfile} onClick={() => void onSaveProfile()}>
+                    {savingProfile ? "Saving…" : "Save profile"}
+                  </Button>
+                </div>
+              </CardContent>
+            ) : null}
+          </Card>
 
           <AdminListCard
             title="Orders"

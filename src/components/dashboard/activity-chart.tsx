@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -15,24 +16,28 @@ import {
 } from "@/components/ui/card";
 import { ADMIN_LIST_CARD_CLASS, ADMIN_LIST_CARD_HEADER_CLASS } from "@/components/dashboard/admin-list-shell";
 import { ChartContainer } from "@/components/dashboard/chart-container";
+import { fetchDailyOrderStats } from "@/lib/supabase/dashboard-stats";
+import { formatMinorUnits } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
 
-/** Illustrative storefront sessions (replace with live analytics when available). */
-const data = Array.from({ length: 24 }, (_, i) => {
-  const d = new Date();
-  d.setHours(d.getHours() - (23 - i));
-  return {
-    t: d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-    sessions: Math.round(120 + Math.random() * 280 + i * 12),
-  };
-});
-
 export function ActivityChart() {
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchDailyOrderStats>>>([]);
+
+  useEffect(() => {
+    void fetchDailyOrderStats(30).then(setData);
+  }, []);
+
+  const chartData = data.map((d) => ({
+    t: d.date.slice(5),
+    orders: d.orders,
+    revenue: d.revenueCents / 100,
+  }));
+
   return (
     <Card className={cn(ADMIN_LIST_CARD_CLASS, "min-h-[320px]")}>
       <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
-        <CardTitle>Activity</CardTitle>
-        <CardDescription>Illustrative session trend (last 24 hours)</CardDescription>
+        <CardTitle>Orders (30 days)</CardTitle>
+        <CardDescription>Daily order count from your database.</CardDescription>
       </CardHeader>
       <CardContent className="w-full min-w-0 overflow-hidden pl-0">
         <ChartContainer>
@@ -40,38 +45,18 @@ export function ActivityChart() {
             <AreaChart
               width={width}
               height={height}
-              data={data}
+              data={chartData}
               margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             >
               <defs>
-                <linearGradient id="fillReq" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="hsl(var(--primary))"
-                    stopOpacity={0.35}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="hsl(var(--primary))"
-                    stopOpacity={0}
-                  />
+                <linearGradient id="fillOrders" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis
-                dataKey="t"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                className="text-muted-foreground"
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                className="text-muted-foreground"
-                width={40}
-              />
+              <XAxis dataKey="t" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
               <Tooltip
                 contentStyle={{
                   borderRadius: "8px",
@@ -81,10 +66,67 @@ export function ActivityChart() {
               />
               <Area
                 type="monotone"
-                dataKey="sessions"
-                name="Sessions"
+                dataKey="orders"
+                name="Orders"
                 stroke="hsl(var(--primary))"
-                fill="url(#fillReq)"
+                fill="url(#fillOrders)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          )}
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function RevenueChart() {
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchDailyOrderStats>>>([]);
+
+  useEffect(() => {
+    void fetchDailyOrderStats(30).then(setData);
+  }, []);
+
+  const chartData = data.map((d) => ({
+    t: d.date.slice(5),
+    revenue: d.revenueCents / 100,
+  }));
+
+  return (
+    <Card className={cn(ADMIN_LIST_CARD_CLASS, "min-h-[320px]")}>
+      <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
+        <CardTitle>Revenue (30 days)</CardTitle>
+        <CardDescription>Daily revenue in PKR (excl. cancelled/refunded).</CardDescription>
+      </CardHeader>
+      <CardContent className="w-full min-w-0 overflow-hidden pl-0">
+        <ChartContainer>
+          {({ width, height }) => (
+            <AreaChart
+              width={width}
+              height={height}
+              data={chartData}
+              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="t" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
+              <Tooltip
+                formatter={(v) =>
+                  formatMinorUnits(Math.round(Number(v ?? 0) * 100), "PKR")
+                }
+                contentStyle={{
+                  borderRadius: "8px",
+                  border: "1px solid hsl(var(--border))",
+                  background: "hsl(var(--popover))",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue"
+                stroke="hsl(var(--primary))"
+                fill="hsl(var(--primary))"
+                fillOpacity={0.15}
                 strokeWidth={2}
               />
             </AreaChart>

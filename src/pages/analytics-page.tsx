@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { ActivityChart } from "@/components/dashboard/activity-chart";
+import { ActivityChart, RevenueChart } from "@/components/dashboard/activity-chart";
 import { DistributionChart } from "@/components/dashboard/distribution-chart";
 import {
   ADMIN_LIST_CARD_CLASS,
@@ -71,9 +71,9 @@ export function AnalyticsPage() {
         hint: "Mean of order totals in range.",
       },
       {
-        label: "Sessions",
+        label: "Traffic",
         value: "—",
-        hint: "Wire Plausible, GA, or Supabase logs when ready.",
+        hint: "Connect GA4 or Meta Pixel in storefront for session data.",
       },
     ],
     [agg, currency, loading],
@@ -83,7 +83,7 @@ export function AnalyticsPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Analytics"
-        description="Order economics from your database; charts below remain illustrative until you connect traffic sources."
+        description="Order economics and trends from your Supabase database. Traffic sessions require GA4 / Meta separately."
         actions={
           <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:min-w-[200px]">
             <Label htmlFor={rangeId}>Date range</Label>
@@ -121,22 +121,10 @@ export function AnalyticsPage() {
 
       <div className="grid min-h-0 min-w-0 gap-6 lg:grid-cols-2">
         <ActivityChart />
-        <DistributionChart />
+        <RevenueChart />
       </div>
 
-      <Card className={ADMIN_LIST_CARD_CLASS}>
-        <CardHeader className={ADMIN_LIST_CARD_HEADER_CLASS}>
-          <CardTitle>Traffic funnels</CardTitle>
-          <CardDescription>
-            Product views and cart steps require client-side or server analytics — not stored in Postgres by default.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className={ADMIN_LIST_CARD_CONTENT_CLASS}>
-          <p className="text-sm text-muted-foreground">
-            When you add event tracking, replace this card with conversion steps (view → cart → checkout → paid).
-          </p>
-        </CardContent>
-      </Card>
+      <DistributionChart />
     </div>
   );
 }

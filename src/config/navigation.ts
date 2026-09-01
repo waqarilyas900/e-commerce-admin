@@ -23,6 +23,8 @@ import {
   Send,
   Scale,
   Search,
+  ShoppingCart,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -78,6 +80,7 @@ export const navGroups: NavGroup[] = [
     label: "Commerce",
     items: [
       { title: "Orders", url: "/dashboard/orders", icon: ClipboardList },
+      { title: "Abandoned carts", url: "/dashboard/abandoned-carts", icon: ShoppingCart },
       { title: "Customers", url: "/dashboard/customers", icon: Users },
       { title: "Vouchers", url: "/dashboard/vouchers", icon: TicketPercent },
       { title: "Reviews", url: "/dashboard/reviews", icon: MessageSquare },
@@ -92,6 +95,7 @@ export const navGroups: NavGroup[] = [
     label: "Workspace",
     items: [
       { title: "SEO", url: "/dashboard/seo", icon: Search },
+      { title: "Audit log", url: "/dashboard/audit-log", icon: ScrollText },
       { title: "Settings", url: "/dashboard/settings", icon: Settings },
     ],
   },
