@@ -1521,14 +1521,34 @@ export function ProductEditPage() {
           }
         >
           <div className="rounded-xl border border-border/80 bg-muted/20 p-4 dark:bg-muted/10">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Inventory
-            </p>
-            <p className="mb-3 text-xs text-muted-foreground">
-              {variants.length > 0
-                ? "Total is the sum of per-variant stock in the rows below."
-                : "For a single-SKU product, enter total units available to sell (used when you add variants or for internal totals)."}
-            </p>
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Inventory
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {variants.length > 0
+                    ? "Total is the sum of per-variant stock in the rows below. Set every variant to 0 to show Sold out on the storefront."
+                    : "For a single-SKU product, enter total units available to sell (used when you add variants or for internal totals)."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => {
+                  if (variants.length > 0) {
+                    setVariants((rows) => rows.map((row) => ({ ...row, stock: "0" })));
+                  } else {
+                    setParentStock("0");
+                  }
+                  toast.message("All stock set to 0 — click Save product to update the storefront.");
+                }}
+              >
+                Mark out of stock
+              </Button>
+            </div>
             <div className="space-y-2 sm:max-w-md">
               <Label htmlFor="parent-stock">
                 {variants.length > 0 ? "Total inventory (calculated)" : "Total inventory (units)"}
