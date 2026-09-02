@@ -31,6 +31,7 @@ import {
   type ReviewModerationStatus,
 } from "@/lib/supabase/reviews-admin";
 import { revalidateStorefrontAfterReviewsChange } from "@/lib/revalidate-after-reviews";
+import { requestReviewThankYouVoucher } from "@/lib/review-thank-you-voucher";
 import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +108,9 @@ export function ReviewsListPage() {
       return;
     }
     revalidateStorefrontAfterReviewsChange();
+    if (status === "approved") {
+      requestReviewThankYouVoucher(id);
+    }
     await load();
   }
 

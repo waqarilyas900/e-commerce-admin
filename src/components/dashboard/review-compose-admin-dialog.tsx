@@ -24,6 +24,7 @@ import {
   type ReviewModerationStatus,
 } from "@/lib/supabase/reviews-admin";
 import { revalidateStorefrontAfterReviewsChange } from "@/lib/revalidate-after-reviews";
+import { requestReviewThankYouVoucher } from "@/lib/review-thank-you-voucher";
 import { cn } from "@/lib/utils";
 
 const FORM_ID = "admin-review-compose-form";
@@ -289,6 +290,9 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
         onOpenChange(false);
         onCreated();
         revalidateStorefrontAfterReviewsChange();
+        if (status === "approved") {
+          requestReviewThankYouVoucher(reviewId);
+        }
         return;
       }
 
@@ -306,6 +310,9 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
           onOpenChange(false);
           onCreated();
           revalidateStorefrontAfterReviewsChange();
+          if (status === "approved") {
+            requestReviewThankYouVoucher(reviewId);
+          }
           return;
         }
       }
@@ -322,6 +329,9 @@ export function ReviewComposeAdminDialog({ open, onOpenChange, onCreated }: Prop
     onOpenChange(false);
     onCreated();
     revalidateStorefrontAfterReviewsChange();
+    if (status === "approved") {
+      requestReviewThankYouVoucher(reviewId);
+    }
   }
 
   return (
