@@ -374,7 +374,25 @@ export function OrderPackingSlip({ order, items, store }: OrderPackingSlipProps)
                   />
                 </td>
                 <td style={{ padding: "10px 12px", borderBottom: `1px solid ${BORDER}`, fontWeight: 600 }}>
-                  {line.product_name_snapshot}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    {line.primary_image_url_snapshot?.trim() ? (
+                      <img
+                        src={line.primary_image_url_snapshot.trim()}
+                        alt=""
+                        width={40}
+                        height={40}
+                        style={{
+                          width: 40,
+                          height: 40,
+                          objectFit: "cover",
+                          borderRadius: 6,
+                          border: `1px solid ${BORDER}`,
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : null}
+                    <span>{line.product_name_snapshot}</span>
+                  </div>
                 </td>
                 <td
                   style={{

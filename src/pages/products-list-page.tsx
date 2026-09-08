@@ -29,6 +29,7 @@ import {
   type ProductCatalogTagRef,
 } from "@/lib/supabase/catalog";
 import type { ProductRow } from "@/lib/supabase/catalog-types";
+import { firstProductImageUrl } from "@/lib/product-image";
 import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -391,6 +392,7 @@ export function ProductsListPage() {
                           className="h-4 w-4 rounded border-border"
                         />
                       </th>
+                      <th className={adminTh("w-14")}>Image</th>
                       <th className={adminTh()}>Name</th>
                       <th className={adminTh()}>Slug</th>
                       <th className={adminTh()}>Status</th>
@@ -400,7 +402,9 @@ export function ProductsListPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((p) => (
+                    {filteredRows.map((p) => {
+                      const thumb = firstProductImageUrl(p.images);
+                      return (
                       <tr key={p.id} className={ADMIN_TABLE_ROW}>
                         <td className={adminTd()}>
                           <input
@@ -411,7 +415,24 @@ export function ProductsListPage() {
                             className="h-4 w-4 rounded border-border"
                           />
                         </td>
+                        <td className={adminTd()}>
+                          <div className="h-11 w-11 overflow-hidden rounded-md border border-border/60 bg-muted/40">
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                                —
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className={adminTd("font-medium text-foreground")}>{p.name}</td>
+
                         <td className={adminTd("font-mono text-xs text-muted-foreground")}>
                           {p.slug}
                         </td>
@@ -458,7 +479,8 @@ export function ProductsListPage() {
                           <AdminRowEditLink to={`/dashboard/products/${p.id}`} />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </TableContainer>

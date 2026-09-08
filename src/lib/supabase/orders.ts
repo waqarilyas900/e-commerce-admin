@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
+import { firstProductImageUrl, resolveOrderLineImageUrl } from "@/lib/product-image";
 
 /** Matches public.order_status after domain_enums migration. */
 export type OrderStatus =
@@ -369,14 +370,135 @@ export async function fetchOrderItemsAdmin(
         "line_subtotal_cents",
         "inventory_on_hand_before",
         "inventory_reserved_before",
+        "product_variants ( products ( images ) )",
       ].join(", "),
     )
     .eq("order_id", orderId);
   if (error) {
     logOrders("fetchOrderItemsAdmin", error.message);
-    return [];
+    // Fallback without join (older PostgREST / RLS edge cases).
+    const { data: plain, error: plainErr } = await supabase
+      .from("order_items")
+      .select(
+        [
+          "id",
+          "order_id",
+          "product_variant_id",
+          "product_name_snapshot",
+          "sku_snapshot",
+          "unit_price_cents",
+          "quantity",
+          "option_values_snapshot",
+          "product_slug_snapshot",
+          "primary_image_url_snapshot",
+          "compare_at_unit_price_cents",
+          "line_subtotal_cents",
+          "inventory_on_hand_before",
+          "inventory_reserved_before",
+        ].join(", "),
+      )
+      .eq("order_id", orderId);
+    if (plainErr) {
+      logOrders("fetchOrderItemsAdmin.plain", plainErr.message);
+      return [];
+    }
+    return await enrichOrderItemsWithLiveImages((plain ?? []) as unknown as OrderItemRow[]);
   }
-  return (data ?? []) as unknown as OrderItemRow[];
+
+  type Nested = OrderItemRow & {
+    product_variants?:
+      | { products?: { images?: unknown } | { images?: unknown }[] | null }
+      | { products?: { images?: unknown } | { images?: unknown }[] | null }[]
+      | null;
+  };
+
+  const rows = (data ?? []) as Nested[];
+  const mapped = rows.map((row) => {
+    const variantRaw = row.product_variants;
+    const variant = Array.isArray(variantRaw) ? variantRaw[0] : variantRaw;
+    const productsRaw = variant?.products;
+    const product = Array.isArray(productsRaw) ? productsRaw[0] : productsRaw;
+    const { product_variants: _omit, ...rest } = row;
+    void _omit;
+    return {
+      ...rest,
+      primary_image_url_snapshot: resolveOrderLineImageUrl(
+        rest.primary_image_url_snapshot,
+        product?.images,
+      ),
+    };
+  });
+  return await enrichOrderItemsWithLiveImages(mapped);
+}
+
+async function enrichOrderItemsWithLiveImages(
+  items: OrderItemRow[],
+): Promise<OrderItemRow[]> {
+  if (!supabase || items.length === 0) return items;
+  const needsLookup = items.some((i) => !i.primary_image_url_snapshot?.trim());
+  if (!needsLookup) return items;
+
+  const variantIds = [...new Set(items.map((i) => i.product_variant_id).filter(Boolean))];
+  if (variantIds.length === 0) return items;
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select("id, product_id, products ( images )")
+    .in("id", variantIds);
+  if (error) {
+    logOrders("enrichOrderItemsWithLiveImages", error.message);
+    return items;
+  }
+
+  const imageByVariant = new Map<string, string>();
+  const productIdByVariant = new Map<string, string>();
+  const productIdsNeedingAssets: string[] = [];
+
+  for (const row of data ?? []) {
+    const r = row as {
+      id: string;
+      product_id: string;
+      products?: { images?: unknown } | { images?: unknown }[] | null;
+    };
+    productIdByVariant.set(r.id, r.product_id);
+    const productsRaw = r.products;
+    const product = Array.isArray(productsRaw) ? productsRaw[0] : productsRaw;
+    const fromImages = firstProductImageUrl(product?.images);
+    if (fromImages) {
+      imageByVariant.set(r.id, fromImages);
+    } else if (r.product_id) {
+      productIdsNeedingAssets.push(r.product_id);
+    }
+  }
+
+  if (productIdsNeedingAssets.length > 0) {
+    const { data: assets } = await supabase
+      .from("product_assets")
+      .select("product_id, url, kind, sort_order")
+      .in("product_id", [...new Set(productIdsNeedingAssets)])
+      .eq("kind", "image")
+      .order("sort_order", { ascending: true });
+    const firstAssetByProduct = new Map<string, string>();
+    for (const a of assets ?? []) {
+      const row = a as { product_id: string; url: string };
+      if (!firstAssetByProduct.has(row.product_id) && row.url?.trim()) {
+        firstAssetByProduct.set(row.product_id, row.url.trim());
+      }
+    }
+    for (const [variantId, productId] of productIdByVariant) {
+      if (imageByVariant.has(variantId)) continue;
+      const url = firstAssetByProduct.get(productId);
+      if (url) imageByVariant.set(variantId, url);
+    }
+  }
+
+  return items.map((item) => ({
+    ...item,
+    primary_image_url_snapshot:
+      item.primary_image_url_snapshot?.trim() ||
+      imageByVariant.get(item.product_variant_id) ||
+      "",
+  }));
 }
 
 export async function fetchOrderStatusHistoryAdmin(
