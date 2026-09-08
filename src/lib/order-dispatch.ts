@@ -29,9 +29,13 @@ export function formatOrderDispatchText(
   if (items.length > 0) {
     lines.push("", "Items:");
     for (const line of items) {
+      const img = line.primary_image_url_snapshot?.trim();
       lines.push(
         `• ${line.product_name_snapshot} × ${line.quantity} (${line.sku_snapshot}) — ${formatMinorUnits(line.line_subtotal_cents, order.currency)}`,
       );
+      if (img) {
+        lines.push(`  Photo: ${img}`);
+      }
     }
   }
 

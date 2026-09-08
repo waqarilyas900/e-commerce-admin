@@ -623,15 +623,36 @@ export function OrderDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((line) => (
+                      {items.map((line) => {
+                        const img = line.primary_image_url_snapshot?.trim() || "";
+                        return (
                         <tr key={line.id} className={ADMIN_TABLE_ROW}>
                           <td className={adminTd()}>
-                            <div className="font-medium">{line.product_name_snapshot}</div>
-                            {line.product_slug_snapshot ? (
-                              <div className="mt-0.5 font-mono text-xs text-muted-foreground">
-                                {line.product_slug_snapshot}
+                            <div className="flex items-start gap-3">
+                              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40">
+                                {img ? (
+                                  // eslint-disable-next-line @next/next/no-img-element -- remote storage URLs
+                                  <img
+                                    src={img}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                                    —
+                                  </div>
+                                )}
                               </div>
-                            ) : null}
+                              <div className="min-w-0">
+                                <div className="font-medium">{line.product_name_snapshot}</div>
+                                {line.product_slug_snapshot ? (
+                                  <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                                    {line.product_slug_snapshot}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
                           </td>
                           <td className={adminTd("font-mono text-xs")}>{line.sku_snapshot}</td>
                           <td className={adminTd("tabular-nums")}>
@@ -658,7 +679,8 @@ export function OrderDetailPage() {
                             {formatMinorUnits(line.line_subtotal_cents, order.currency)}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </TableContainer>
