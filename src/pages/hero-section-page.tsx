@@ -28,6 +28,7 @@ import {
 } from "@/lib/supabase/home-marketing";
 import { uploadHomeHeroImage } from "@/lib/supabase/storage";
 import { ProductDescriptionEditor } from "@/components/dashboard/product-description-editor";
+import { revalidateStorefront } from "@/lib/seo/revalidate";
 
 export function HeroSectionPage() {
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,7 @@ export function HeroSectionPage() {
       return;
     }
     toast.success("Mission content saved.");
+    void revalidateStorefront({ all: true });
   }
 
   function patchSlideLocal(id: string, patch: Partial<HomeHeroSlideRow>) {
@@ -83,10 +85,6 @@ export function HeroSectionPage() {
     const title = row.title.trim();
     const image_url = row.image_url.trim();
     const href = row.href.trim() || "/";
-    if (!title) {
-      toast.error("Each slide needs a title.");
-      return;
-    }
     if (!image_url) {
       toast.error("Each slide needs an image URL or upload.");
       return;
@@ -103,6 +101,7 @@ export function HeroSectionPage() {
       return;
     }
     toast.success("Slide saved.");
+    void revalidateStorefront({ all: true });
     await load();
   }
 
@@ -114,6 +113,7 @@ export function HeroSectionPage() {
       return;
     }
     toast.success("Slide removed.");
+    void revalidateStorefront({ all: true });
     await load();
   }
 
@@ -165,6 +165,7 @@ export function HeroSectionPage() {
       toast.error(r2.error);
       return;
     }
+    void revalidateStorefront({ all: true });
     await load();
   }
 
