@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Copy, Download, MessageCircle, Package, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,19 +23,28 @@ import {
   adminTh,
   adminThEnd,
   adminTd,
-  AdminRowEditLink,
   AdminRowActions,
 } from "@/components/dashboard/admin-list-shell";
 import {
   deleteOrderAdmin,
+  fetchOrderDeskStats,
   fetchOrdersAdminForExport,
   fetchOrdersAdminPaginated,
   type OrderDateRange,
+  type OrderDeskStats,
   type OrderRow,
   type OrderStatus,
 } from "@/lib/supabase/orders";
 import { exportOrdersCsv } from "@/lib/orders-csv-export";
-import { formatOrderStatus, orderStatusVariant } from "@/lib/order-status";
+import {
+  deriveFulfillmentLane,
+  derivePaymentLane,
+  formatPaymentMethod,
+  FULFILLMENT_LANE_LABELS,
+  fulfillmentLaneVariant,
+  PAYMENT_LANE_LABELS,
+  paymentLaneVariant,
+} from "@/lib/order-lanes";
 import { formatMinorUnits } from "@/lib/format-money";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -68,10 +77,33 @@ const DATE_FILTER: Array<{ value: OrderDateRange; label: string }> = [
 
 const DELIVERED_LIKE: OrderStatus[] = ["delivered", "shipped"];
 
+const EMPTY_STATS: OrderDeskStats = {
+  total: 0,
+  open: 0,
+  unfulfilled: 0,
+  processing: 0,
+  shipped: 0,
+  delivered: 0,
+  issues: 0,
+};
+
 function parseStatusParam(raw: string | null): OrderStatus | "all" {
   if (!raw) return "all";
   const hit = STATUS_FILTER.find((f) => f.value === raw);
   return hit ? hit.value : "all";
+}
+
+function formatPlacedAt(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function customerName(o: OrderRow): string {
+  return [o.first_name, o.last_name].filter(Boolean).join(" ") || o.email || "—";
 }
 
 export function OrdersListPage() {
@@ -83,6 +115,7 @@ export function OrdersListPage() {
   );
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<OrderDeskStats>(EMPTY_STATS);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -116,15 +149,19 @@ export function OrdersListPage() {
     }
     setLoading(true);
     try {
-      const result = await fetchOrdersAdminPaginated({
-        page,
-        pageSize: PAGE_SIZE,
-        status: filter,
-        search: searchDebounced,
-        dateRange,
-      });
+      const [result, desk] = await Promise.all([
+        fetchOrdersAdminPaginated({
+          page,
+          pageSize: PAGE_SIZE,
+          status: filter,
+          search: searchDebounced,
+          dateRange,
+        }),
+        fetchOrderDeskStats(dateRange),
+      ]);
       setRows(result.rows);
       setTotal(result.total);
+      setStats(desk);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load orders.");
     } finally {
@@ -196,48 +233,149 @@ export function OrdersListPage() {
   const isRiskyDelete =
     pendingDelete != null && DELIVERED_LIKE.includes(pendingDelete.status);
 
+  const deskStats: Array<{
+    key: string;
+    label: string;
+    value: number;
+    hint: string;
+    onClick: () => void;
+    active: boolean;
+  }> = [
+    {
+      key: "total",
+      label: "Total",
+      value: stats.total,
+      hint: "In date range",
+      onClick: () => setFilter("all"),
+      active: filter === "all",
+    },
+    {
+      key: "open",
+      label: "Open",
+      value: stats.open,
+      hint: "Pending → processing",
+      onClick: () => setFilter("pending"),
+      active: filter === "pending" || filter === "confirmed" || filter === "paid",
+    },
+    {
+      key: "unfulfilled",
+      label: "Unfulfilled",
+      value: stats.unfulfilled,
+      hint: "Not yet packing",
+      onClick: () => setFilter("confirmed"),
+      active: filter === "confirmed",
+    },
+    {
+      key: "processing",
+      label: "Processing",
+      value: stats.processing,
+      hint: "In warehouse",
+      onClick: () => setFilter("processing"),
+      active: filter === "processing",
+    },
+    {
+      key: "shipped",
+      label: "Shipped",
+      value: stats.shipped,
+      hint: "With courier",
+      onClick: () => setFilter("shipped"),
+      active: filter === "shipped",
+    },
+    {
+      key: "delivered",
+      label: "Delivered",
+      value: stats.delivered,
+      hint: "Completed",
+      onClick: () => setFilter("delivered"),
+      active: filter === "delivered",
+    },
+    {
+      key: "issues",
+      label: "Issues",
+      value: stats.issues,
+      hint: "Cancelled / refunded",
+      onClick: () => setFilter("cancelled"),
+      active: filter === "cancelled" || filter === "refunded",
+    },
+  ];
+
   return (
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Orders"
-        description="Paginated list, date filters, copy/WhatsApp, CSV export, and packing slips."
+        description="Fulfillment desk — filter, search, copy for courier, WhatsApp, and CSV export."
         actions={
-          <Button type="button" variant="outline" size="sm" disabled={exporting} onClick={() => void exportCsv()}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={() => void exportCsv()}
+          >
             <Download className="mr-2 h-4 w-4" />
             {exporting ? "Exporting…" : "Export CSV"}
           </Button>
         }
       />
 
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+        {deskStats.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={s.onClick}
+            className={cn(
+              "rounded-lg border px-3 py-2.5 text-left transition-colors",
+              s.active
+                ? "border-primary/40 bg-primary/5 shadow-sm"
+                : "border-border/70 bg-card hover:border-border hover:bg-muted/30",
+            )}
+          >
+            <p className="text-[11px] font-medium text-muted-foreground">{s.label}</p>
+            <p className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight">
+              {s.value.toLocaleString()}
+            </p>
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{s.hint}</p>
+          </button>
+        ))}
+      </div>
+
       <AdminListCard
         title="Order desk"
-        description={`${total.toLocaleString()} order${total === 1 ? "" : "s"} matching filters.`}
+        description={
+          <>
+            <span className="font-medium text-foreground tabular-nums">
+              {total.toLocaleString()}
+            </span>{" "}
+            matching current filters
+          </>
+        }
       >
-        <div className="mb-5 space-y-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0 flex-1 overflow-x-auto pb-1">
-              <AdminFilterBar className="w-max min-w-full flex-nowrap sm:flex-wrap">
-                {STATUS_FILTER.map((f) => (
-                  <Button
-                    key={f.value}
-                    type="button"
-                    size="sm"
-                    variant={filter === f.value ? "default" : "ghost"}
-                    className={cn(
-                      "shrink-0 rounded-lg",
-                      filter === f.value ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                    onClick={() => setFilter(f.value)}
-                  >
-                    {f.label}
-                  </Button>
-                ))}
-              </AdminFilterBar>
-            </div>
+        <div className="mb-4 space-y-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <AdminFilterBar className="w-max max-w-full flex-nowrap overflow-x-auto">
+              {STATUS_FILTER.map((f) => (
+                <Button
+                  key={f.value}
+                  type="button"
+                  size="sm"
+                  variant={filter === f.value ? "default" : "ghost"}
+                  className={cn(
+                    "h-7 shrink-0 rounded-md px-2.5",
+                    filter === f.value
+                      ? "shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => setFilter(f.value)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </AdminFilterBar>
             <NativeSelect
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as OrderDateRange)}
-              className="h-9 w-full shrink-0 text-sm xl:w-44"
+              className="h-8 w-full shrink-0 text-sm sm:w-40"
               aria-label="Date range"
             >
               {DATE_FILTER.map((d) => (
@@ -250,9 +388,10 @@ export function OrdersListPage() {
           <AdminSearchField
             value={query}
             onChange={setQuery}
-            placeholder="Search ref, phone, city, email…"
+            placeholder="Search order #, phone, city, email…"
             aria-label="Search orders"
             className="max-w-md"
+            inputClassName="h-9"
           />
         </div>
 
@@ -287,81 +426,122 @@ export function OrdersListPage() {
         ) : (
           <>
             <TableContainer>
-              <table className="w-full min-w-[1040px] text-left text-sm">
+              <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead>
                   <tr className={ADMIN_TABLE_HEAD}>
-                    <th className={adminTh()}>Reference</th>
+                    <th className={adminTh()}>Order</th>
+                    <th className={adminTh()}>Date</th>
                     <th className={adminTh()}>Customer</th>
-                    <th className={adminTh()}>City</th>
+                    <th className={adminTh()}>Destination</th>
+                    <th className={adminTh()}>Payment</th>
+                    <th className={adminTh()}>Fulfillment</th>
                     <th className={adminTh()}>Total</th>
-                    <th className={adminTh()}>Status</th>
-                    <th className={adminTh()}>Placed</th>
                     <th className={adminThEnd()}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((o) => (
-                    <tr key={o.id} className={ADMIN_TABLE_ROW}>
-                      <td className={adminTd("font-mono text-xs font-medium")}>
-                        {o.order_number ?? o.id.slice(0, 8)}
-                      </td>
-                      <td className={adminTd()}>
-                        <span className="block max-w-[200px] truncate font-medium" title={o.email}>
-                          {[o.first_name, o.last_name].filter(Boolean).join(" ") || o.email || "—"}
-                        </span>
-                        {o.phone ? (
-                          <span className="mt-0.5 block text-xs text-muted-foreground">{o.phone}</span>
-                        ) : null}
-                      </td>
-                      <td className={adminTd("text-muted-foreground")}>
-                        {[o.shipping_city, o.shipping_province].filter(Boolean).join(", ") || "—"}
-                      </td>
-                      <td className={adminTd("tabular-nums font-medium")}>
-                        {formatMinorUnits(o.total_cents, o.currency)}
-                      </td>
-                      <td className={adminTd()}>
-                        <Badge variant={orderStatusVariant(o.status)} className="capitalize">
-                          {formatOrderStatus(o.status)}
-                        </Badge>
-                      </td>
-                      <td className={adminTd("text-muted-foreground")}>
-                        {new Date(o.created_at).toLocaleString()}
-                      </td>
-                      <td className={cn(adminTd(), "whitespace-nowrap")}>
-                        <AdminRowActions>
-                          <AdminRowEditLink to={`/dashboard/orders/${o.id}`}>Open</AdminRowEditLink>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void copyOrderRow(o)}
-                            aria-label="Copy order summary"
+                  {rows.map((o) => {
+                    const pay = derivePaymentLane(o.status, o.payment_method);
+                    const fulfill = deriveFulfillmentLane(o.status);
+                    const ref = o.order_number ?? o.id.slice(0, 8);
+                    return (
+                      <tr key={o.id} className={ADMIN_TABLE_ROW}>
+                        <td className={adminTd()}>
+                          <Link
+                            to={`/dashboard/orders/${o.id}`}
+                            className="font-mono text-xs font-semibold text-primary hover:underline"
                           >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => whatsAppOrder(o)}
-                            aria-label="WhatsApp customer"
+                            #{ref}
+                          </Link>
+                          {o.customer_note ? (
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                              Has note
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className={adminTd("whitespace-nowrap text-xs text-muted-foreground")}>
+                          {formatPlacedAt(o.created_at)}
+                        </td>
+                        <td className={adminTd()}>
+                          <span
+                            className="block max-w-[200px] truncate font-medium"
+                            title={o.email}
                           >
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => setPendingDelete(o)}
-                            aria-label={`Delete order ${o.order_number ?? o.id.slice(0, 8)}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AdminRowActions>
-                      </td>
-                    </tr>
-                  ))}
+                            {customerName(o)}
+                          </span>
+                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            {o.phone ? <span>{o.phone}</span> : null}
+                            {!o.user_id ? (
+                              <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
+                                Guest
+                              </Badge>
+                            ) : null}
+                          </span>
+                        </td>
+                        <td className={adminTd("text-muted-foreground")}>
+                          <span className="block max-w-[160px] truncate">
+                            {o.shipping_city || "—"}
+                          </span>
+                          {o.shipping_province ? (
+                            <span className="mt-0.5 block text-xs text-muted-foreground/80">
+                              {o.shipping_province}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className={adminTd()}>
+                          <Badge variant={paymentLaneVariant(pay)} className="font-medium">
+                            {PAYMENT_LANE_LABELS[pay]}
+                          </Badge>
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            {formatPaymentMethod(o.payment_method)}
+                          </span>
+                        </td>
+                        <td className={adminTd()}>
+                          <Badge variant={fulfillmentLaneVariant(fulfill)} className="font-medium">
+                            {FULFILLMENT_LANE_LABELS[fulfill]}
+                          </Badge>
+                        </td>
+                        <td className={adminTd("tabular-nums font-semibold")}>
+                          {formatMinorUnits(o.total_cents, o.currency)}
+                        </td>
+                        <td className={cn(adminTd(), "whitespace-nowrap")}>
+                          <AdminRowActions>
+                            <Button variant="ghost" size="sm" className="font-medium text-primary" asChild>
+                              <Link to={`/dashboard/orders/${o.id}`}>Open</Link>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void copyOrderRow(o)}
+                              aria-label="Copy order summary"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => whatsAppOrder(o)}
+                              aria-label="WhatsApp customer"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => setPendingDelete(o)}
+                              aria-label={`Delete order ${ref}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AdminRowActions>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </TableContainer>

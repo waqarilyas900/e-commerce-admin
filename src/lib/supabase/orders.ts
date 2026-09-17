@@ -216,6 +216,69 @@ export async function fetchOrdersAdminPaginated(options: {
   return { rows: (data ?? []) as unknown as OrderRow[], total: count ?? 0 };
 }
 
+export type OrderDeskStats = {
+  total: number;
+  open: number;
+  unfulfilled: number;
+  processing: number;
+  shipped: number;
+  delivered: number;
+  issues: number;
+};
+
+/** Lightweight desk counts for the current date range (status filter ignored). */
+export async function fetchOrderDeskStats(
+  dateRange: OrderDateRange = "all",
+): Promise<OrderDeskStats> {
+  const empty: OrderDeskStats = {
+    total: 0,
+    open: 0,
+    unfulfilled: 0,
+    processing: 0,
+    shipped: 0,
+    delivered: 0,
+    issues: 0,
+  };
+  if (!supabase) return empty;
+
+  const since = sinceIsoForDateRange(dateRange);
+  const base = () => {
+    let q = supabase!.from("orders").select("id", { count: "exact", head: true });
+    if (since) q = q.gte("created_at", since);
+    return q;
+  };
+
+  const [
+    totalRes,
+    openRes,
+    unfulfilledRes,
+    processingRes,
+    shippedRes,
+    deliveredRes,
+    issuesRes,
+  ] = await Promise.all([
+    base(),
+    base().in("status", ["pending", "confirmed", "paid", "processing"]),
+    base().in("status", ["pending", "confirmed", "paid"]),
+    base().eq("status", "processing"),
+    base().eq("status", "shipped"),
+    base().eq("status", "delivered"),
+    base().in("status", ["cancelled", "refunded"]),
+  ]);
+
+  if (totalRes.error) logOrders("fetchOrderDeskStats total", totalRes.error.message);
+
+  return {
+    total: totalRes.count ?? 0,
+    open: openRes.count ?? 0,
+    unfulfilled: unfulfilledRes.count ?? 0,
+    processing: processingRes.count ?? 0,
+    shipped: shippedRes.count ?? 0,
+    delivered: deliveredRes.count ?? 0,
+    issues: issuesRes.count ?? 0,
+  };
+}
+
 export async function fetchOrdersAdminForExport(options?: {
   status?: OrderStatus | "all";
   search?: string;
