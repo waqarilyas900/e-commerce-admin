@@ -475,7 +475,7 @@ export async function fetchOrderItemsAdmin(
       | null;
   };
 
-  const rows = (data ?? []) as Nested[];
+  const rows = (data ?? []) as unknown as Nested[];
   const mapped = rows.map((row) => {
     const variantRaw = row.product_variants;
     const variant = Array.isArray(variantRaw) ? variantRaw[0] : variantRaw;
