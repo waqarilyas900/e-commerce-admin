@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { OrderItemRow, OrderRow, PaymentMethod } from "@/lib/supabase/orders";
 import { APP_LOGO_SRC } from "@/config/brand";
 import { formatMinorUnits } from "@/lib/format-money";
-import { formatOrderStatus } from "@/lib/order-status";
+import { formatOptionSnapshot } from "@/lib/order-lanes";
 
 export type PackingSlipStoreInfo = {
   storeName: string;
@@ -17,18 +17,14 @@ type OrderPackingSlipProps = {
   store?: PackingSlipStoreInfo;
 };
 
-const ACCENT = "#E0703A";
-const INK = "#1C1D1D";
-const MUTED = "#6B6B68";
-const BORDER = "#D8D8D6";
-const PANEL = "#F6F5F3";
+const BRAND = "#c45c2a";
 
 function formatPaymentLabel(method: PaymentMethod): string {
   switch (method) {
     case "cod":
-      return "Cash on delivery (COD)";
+      return "Cash on delivery";
     case "card":
-      return "Card payment";
+      return "Card";
     case "bank_transfer":
       return "Bank transfer";
     case "wallet":
@@ -46,50 +42,42 @@ function packingSlipQrUrl(orderId: string): string {
   return `${origin}/dashboard/orders/${orderId}`;
 }
 
-function sectionTitleStyle(): React.CSSProperties {
-  return {
-    margin: "0 0 10px",
-    fontSize: "8pt",
-    fontWeight: 700,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
-    color: ACCENT,
-  };
-}
+const labelStyle: React.CSSProperties = {
+  fontSize: "7.5pt",
+  fontWeight: 800,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  color: "#555",
+  marginBottom: "4px",
+};
 
-function panelStyle(): React.CSSProperties {
-  return {
-    border: `1px solid ${BORDER}`,
-    borderRadius: "10px",
-    padding: "14px 16px",
-    background: "#fff",
-    boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
-  };
-}
-
+/**
+ * Wide packing slip:
+ * - Large logo left, store + phone right
+ * - Order number on its own row below
+ * - Spacious sections; QR + email at bottom
+ */
 export function OrderPackingSlip({ order, items, store }: OrderPackingSlipProps) {
   const ref = order.order_number ?? order.id.slice(0, 8).toUpperCase();
   const customerName = [order.first_name, order.last_name].filter(Boolean).join(" ") || "—";
-  const cityLine = [order.shipping_city, order.shipping_province, order.shipping_postal_code]
-    .filter(Boolean)
-    .join(", ");
+  const storeName = store?.storeName?.trim() || "SimpleCart Store";
   const logoSrc =
     typeof window !== "undefined" ? `${window.location.origin}${APP_LOGO_SRC}` : APP_LOGO_SRC;
-  const storeName = store?.storeName?.trim() || "SimpleCart Store";
-  const unitCount = items.reduce((n, l) => n + l.quantity, 0);
-  const lineCount = items.length;
-  const printedAt = useMemo(() => new Date().toLocaleString(), []);
-  const isCod = order.payment_method === "cod";
+  const addressLines = [
+    order.shipping_street,
+    [order.shipping_city, order.shipping_province].filter(Boolean).join(", "),
+    order.shipping_postal_code,
+  ].filter(Boolean);
   const qrTarget = packingSlipQrUrl(order.id);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void QRCode.toDataURL(qrTarget, {
-      width: 128,
+      width: 200,
       margin: 1,
       errorCorrectionLevel: "M",
-      color: { dark: INK, light: "#ffffff" },
+      color: { dark: "#111", light: "#ffffff" },
     })
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);
@@ -106,7 +94,7 @@ export function OrderPackingSlip({ order, items, store }: OrderPackingSlipProps)
     <div id="order-packing-slip" className="hidden print:block">
       <style>{`
         @media print {
-          @page { margin: 12mm; size: A4; }
+          @page { margin: 10mm; size: A4; }
           body * { visibility: hidden; }
           #order-packing-slip, #order-packing-slip * { visibility: visible; }
           #order-packing-slip {
@@ -115,395 +103,485 @@ export function OrderPackingSlip({ order, items, store }: OrderPackingSlipProps)
             top: 0;
             width: 100%;
             box-sizing: border-box;
-            padding: 0;
-            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-            font-size: 10.5pt;
-            line-height: 1.45;
-            color: ${INK};
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 11pt;
+            font-weight: 600;
+            line-height: 1.35;
+            color: #111;
+            background: #fff;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
         }
       `}</style>
 
-      {/* Document banner */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
-          background: INK,
-          color: "#fff",
-          borderRadius: "10px 10px 0 0",
-          padding: "10px 18px",
-          fontSize: "8pt",
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          fontWeight: 600,
-        }}
-      >
-        <span>Packing &amp; dispatch slip</span>
-        <span>Printed {printedAt}</span>
-      </div>
-
-      {/* Header */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "20px",
-          padding: "18px 18px 16px",
-          border: `1px solid ${BORDER}`,
-          borderTop: "none",
-          borderRadius: "0 0 10px 10px",
-          marginBottom: "18px",
-          background: PANEL,
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <img
-            src={logoSrc}
-            alt={storeName}
-            style={{ height: "48px", width: "auto", maxWidth: "210px", objectFit: "contain" }}
-          />
-          <div style={{ marginTop: "8px", fontSize: "11pt", fontWeight: 700 }}>{storeName}</div>
-          {store?.supportPhone ? (
-            <div style={{ marginTop: "2px", fontSize: "9pt", color: MUTED }}>{store.supportPhone}</div>
-          ) : null}
+      <div style={{ position: "relative" }}>
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "48%",
+            transform: "translate(-50%, -50%) rotate(-26deg)",
+            fontSize: "42pt",
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: BRAND,
+            opacity: 0.09,
+            border: `3.5px solid ${BRAND}`,
+            borderRadius: "8px",
+            padding: "16px 32px",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 0,
+            lineHeight: 1,
+          }}
+        >
+          {storeName}
         </div>
 
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", flexShrink: 0 }}>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: "8pt", fontWeight: 600, letterSpacing: "0.12em", color: MUTED }}>
-              Order reference
-            </div>
-            <div
-              style={{
-                fontSize: "24pt",
-                fontWeight: 800,
-                fontFamily: "ui-monospace, monospace",
-                lineHeight: 1.1,
-                marginTop: "2px",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {ref}
-            </div>
-            <div style={{ marginTop: "8px", fontSize: "8pt", color: MUTED, fontFamily: "ui-monospace, monospace" }}>
-              ID {order.id.slice(0, 8).toUpperCase()}
-            </div>
-          </div>
-
-          <div
+        <div style={{ position: "relative", zIndex: 1 }}>
+          {/* Brand band: logo LEFT · store + phone RIGHT */}
+          <header
             style={{
-              border: `1px solid ${BORDER}`,
-              borderRadius: "8px",
-              padding: "8px",
-              background: "#fff",
-              textAlign: "center",
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              width: "100%",
+              gap: "28px",
+              marginBottom: "14px",
+              paddingBottom: "12px",
+              borderBottom: `3px solid ${BRAND}`,
             }}
           >
-            {qrDataUrl ? (
-              <img src={qrDataUrl} alt={`QR code for order ${ref}`} width={96} height={96} style={{ display: "block" }} />
-            ) : (
+            <img
+              src={logoSrc}
+              alt={storeName}
+              style={{
+                height: "120px",
+                width: "auto",
+                maxWidth: "48%",
+                objectFit: "contain",
+                objectPosition: "left top",
+                display: "block",
+              }}
+            />
+
+            <div style={{ textAlign: "right", flex: "0 0 auto", maxWidth: "48%", paddingTop: "4px" }}>
               <div
                 style={{
-                  width: 96,
-                  height: 96,
-                  background: "#eee",
-                  borderRadius: "4px",
+                  fontSize: "20pt",
+                  fontWeight: 900,
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.02em",
+                  color: "#0a0a0a",
                 }}
-              />
-            )}
-            <div style={{ marginTop: "6px", fontSize: "7pt", fontWeight: 600, color: MUTED, maxWidth: 96 }}>
-              Scan to open order
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Meta row */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.15fr 0.85fr 0.85fr",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
-      >
-        <section style={panelStyle()}>
-          <h2 style={sectionTitleStyle()}>Ship to</h2>
-          <p style={{ margin: 0, fontSize: "14pt", fontWeight: 800, lineHeight: 1.25 }}>{customerName}</p>
-          {order.phone ? (
-            <p style={{ margin: "8px 0 0", fontWeight: 700, fontSize: "11pt" }}>{order.phone}</p>
-          ) : null}
-          {order.email ? (
-            <p style={{ margin: "4px 0 0", color: MUTED, fontSize: "9pt" }}>{order.email}</p>
-          ) : null}
-          <div
-            style={{
-              marginTop: "12px",
-              paddingTop: "10px",
-              borderTop: `1px dashed ${BORDER}`,
-              fontSize: "10pt",
-            }}
-          >
-            {order.shipping_street ? <div>{order.shipping_street}</div> : null}
-            {cityLine ? <div style={{ marginTop: "4px" }}>{cityLine}</div> : null}
-          </div>
-        </section>
-
-        <section style={panelStyle()}>
-          <h2 style={sectionTitleStyle()}>Order</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9.5pt" }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: "4px 0", color: MUTED }}>Status</td>
-                <td style={{ padding: "4px 0", fontWeight: 700, textAlign: "right" }}>
-                  {formatOrderStatus(order.status)}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: "4px 0", color: MUTED }}>Placed</td>
-                <td style={{ padding: "4px 0", textAlign: "right", fontSize: "9pt" }}>
-                  {new Date(order.created_at).toLocaleString()}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: "4px 0", color: MUTED }}>Lines</td>
-                <td style={{ padding: "4px 0", fontWeight: 700, textAlign: "right" }}>
-                  {lineCount} SKU · {unitCount} units
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section
-          style={{
-            ...panelStyle(),
-            borderColor: isCod ? ACCENT : BORDER,
-            background: isCod ? "#fff9f5" : "#fff",
-          }}
-        >
-          <h2 style={sectionTitleStyle()}>Payment</h2>
-          <div
-            style={{
-              display: "inline-block",
-              padding: "6px 10px",
-              borderRadius: "6px",
-              background: isCod ? ACCENT : INK,
-              color: "#fff",
-              fontSize: "9pt",
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}
-          >
-            {formatPaymentLabel(order.payment_method)}
-          </div>
-          <div style={{ marginTop: "12px", fontSize: "18pt", fontWeight: 800 }}>
-            {formatMinorUnits(order.total_cents, order.currency)}
-          </div>
-          <div style={{ marginTop: "4px", fontSize: "8pt", color: MUTED }}>
-            {isCod ? "Collect on delivery" : "Prepaid order"}
-          </div>
-        </section>
-      </div>
-
-      {order.customer_note ? (
-        <section
-          style={{
-            border: `1px dashed ${ACCENT}`,
-            borderRadius: "10px",
-            padding: "12px 14px",
-            marginBottom: "18px",
-            background: "#fff8f4",
-          }}
-        >
-          <div style={sectionTitleStyle()}>Customer note</div>
-          <p style={{ margin: 0, fontSize: "10pt" }}>{order.customer_note}</p>
-        </section>
-      ) : null}
-
-      {/* Items */}
-      <section style={{ marginBottom: "18px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            marginBottom: "10px",
-          }}
-        >
-          <h2 style={{ ...sectionTitleStyle(), margin: 0, color: MUTED }}>Pick list</h2>
-          <span style={{ fontSize: "8pt", color: MUTED }}>Tick each line when packed</span>
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", border: `1px solid ${BORDER}` }}>
-          <thead>
-            <tr style={{ background: INK, color: "#fff" }}>
-              <th style={{ width: "28px", padding: "9px 8px", fontSize: "8pt", fontWeight: 600 }}>#</th>
-              <th style={{ width: "34px", padding: "9px 6px", fontSize: "8pt", fontWeight: 600 }}>✓</th>
-              <th style={{ textAlign: "left", padding: "9px 12px", fontSize: "8pt", fontWeight: 600 }}>Product</th>
-              <th style={{ textAlign: "left", padding: "9px 12px", fontSize: "8pt", fontWeight: 600 }}>SKU</th>
-              <th style={{ textAlign: "center", padding: "9px 10px", fontSize: "8pt", fontWeight: 600, width: "52px" }}>
-                Qty
-              </th>
-              <th style={{ textAlign: "right", padding: "9px 12px", fontSize: "8pt", fontWeight: 600, width: "92px" }}>
-                Line
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((line, i) => (
-              <tr key={line.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafaf9" }}>
-                <td style={{ padding: "10px 8px", borderBottom: `1px solid ${BORDER}`, color: MUTED, fontSize: "9pt" }}>
-                  {i + 1}
-                </td>
-                <td style={{ padding: "10px 6px", borderBottom: `1px solid ${BORDER}`, textAlign: "center" }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: "14px",
-                      height: "14px",
-                      border: `1.5px solid ${INK}`,
-                      borderRadius: "2px",
-                    }}
-                  />
-                </td>
-                <td style={{ padding: "10px 12px", borderBottom: `1px solid ${BORDER}`, fontWeight: 600 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {line.primary_image_url_snapshot?.trim() ? (
-                      <img
-                        src={line.primary_image_url_snapshot.trim()}
-                        alt=""
-                        width={40}
-                        height={40}
-                        style={{
-                          width: 40,
-                          height: 40,
-                          objectFit: "cover",
-                          borderRadius: 6,
-                          border: `1px solid ${BORDER}`,
-                          flexShrink: 0,
-                        }}
-                      />
-                    ) : null}
-                    <span>{line.product_name_snapshot}</span>
-                  </div>
-                </td>
-                <td
+              >
+                {storeName}
+              </div>
+              {store?.supportPhone ? (
+                <div
                   style={{
-                    padding: "10px 12px",
-                    borderBottom: `1px solid ${BORDER}`,
-                    fontFamily: "ui-monospace, monospace",
-                    fontSize: "9.5pt",
-                  }}
-                >
-                  {line.sku_snapshot}
-                </td>
-                <td
-                  style={{
-                    padding: "10px 10px",
-                    borderBottom: `1px solid ${BORDER}`,
-                    textAlign: "center",
-                    fontWeight: 800,
+                    marginTop: "6px",
                     fontSize: "13pt",
+                    fontWeight: 800,
+                    color: "#1a1a1a",
+                    letterSpacing: "0.01em",
                   }}
                 >
-                  {line.quantity}
-                </td>
-                <td style={{ padding: "10px 12px", borderBottom: `1px solid ${BORDER}`, textAlign: "right" }}>
-                  {formatMinorUnits(line.line_subtotal_cents, order.currency)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+                  {store.supportPhone}
+                </div>
+              ) : null}
+              <div
+                style={{
+                  marginTop: "6px",
+                  fontSize: "8pt",
+                  fontWeight: 800,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: BRAND,
+                }}
+              >
+                Packing slip
+              </div>
+            </div>
+          </header>
 
-      {/* Totals + signatures */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "18px",
-          alignItems: "start",
-        }}
-      >
-        <section style={panelStyle()}>
-          <h2 style={sectionTitleStyle()}>Fulfillment sign-off</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginTop: "8px" }}>
-            <div>
-              <div style={{ fontSize: "8pt", color: MUTED, marginBottom: "28px" }}>Packed by</div>
-              <div style={{ borderBottom: `1px solid ${INK}`, height: "1px" }} />
-            </div>
-            <div>
-              <div style={{ fontSize: "8pt", color: MUTED, marginBottom: "28px" }}>Checked by</div>
-              <div style={{ borderBottom: `1px solid ${INK}`, height: "1px" }} />
-            </div>
-          </div>
-          <div style={{ marginTop: "16px", fontSize: "8pt", color: MUTED }}>
-            Date: _______________________
-          </div>
-        </section>
-
-        <section style={{ ...panelStyle(), background: PANEL }}>
-          <h2 style={sectionTitleStyle()}>Summary</h2>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-            <span style={{ color: MUTED }}>Subtotal</span>
-            <span>{formatMinorUnits(order.subtotal_cents, order.currency)}</span>
-          </div>
-          {order.discount_cents > 0 ? (
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-              <span style={{ color: MUTED }}>Discount</span>
-              <span>−{formatMinorUnits(order.discount_cents, order.currency)}</span>
-            </div>
-          ) : null}
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-            <span style={{ color: MUTED }}>Shipping</span>
-            <span>{formatMinorUnits(order.shipping_cents, order.currency)}</span>
-          </div>
+          {/* Order number */}
           <div
             style={{
               display: "flex",
+              alignItems: "baseline",
               justifyContent: "space-between",
-              paddingTop: "10px",
-              borderTop: `2px solid ${INK}`,
-              fontSize: "14pt",
-              fontWeight: 800,
+              gap: "16px",
+              marginBottom: "16px",
+              paddingBottom: "10px",
+              borderBottom: "2px solid #222",
             }}
           >
-            <span>Total</span>
-            <span>{formatMinorUnits(order.total_cents, order.currency)}</span>
+            <div>
+              <div style={labelStyle}>Order number</div>
+              <div
+                style={{
+                  fontSize: "24pt",
+                  fontWeight: 900,
+                  fontFamily: "ui-monospace, Consolas, monospace",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.1,
+                  color: "#0a0a0a",
+                }}
+              >
+                #{ref}
+              </div>
+            </div>
+            <div
+              style={{
+                textAlign: "right",
+                color: "#222",
+                fontSize: "11.5pt",
+                fontWeight: 700,
+              }}
+            >
+              {new Date(order.created_at).toLocaleDateString(undefined, {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </div>
           </div>
-        </section>
-      </div>
 
-      <footer
-        style={{
-          marginTop: "22px",
-          paddingTop: "12px",
-          borderTop: `1px solid ${BORDER}`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          gap: "16px",
-          fontSize: "8pt",
-          color: MUTED,
-        }}
-      >
-        <div>
-          <strong style={{ color: INK, fontSize: "9pt" }}>{storeName}</strong>
-          {store?.supportEmail ? <div style={{ marginTop: "3px" }}>{store.supportEmail}</div> : null}
-          <div style={{ marginTop: "6px" }}>This document is for packing and dispatch — not a tax invoice.</div>
+          {/* Customer + payment */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              columnGap: "40px",
+              marginBottom: "18px",
+            }}
+          >
+            <div>
+              <div style={{ marginBottom: "10px" }}>
+                <div style={{ ...labelStyle, marginBottom: "3px" }}>Name</div>
+                <div style={{ fontSize: "15pt", fontWeight: 900, color: "#0a0a0a" }}>
+                  {customerName}
+                </div>
+              </div>
+              <div style={{ marginBottom: "10px" }}>
+                <div style={{ ...labelStyle, marginBottom: "3px" }}>Phone</div>
+                <div style={{ fontSize: "13pt", fontWeight: 800, color: "#111" }}>
+                  {order.phone?.trim() || "—"}
+                </div>
+              </div>
+              <div>
+                <div style={{ ...labelStyle, marginBottom: "3px" }}>Address</div>
+                {addressLines.length > 0 ? (
+                  addressLines.map((line) => (
+                    <div
+                      key={line}
+                      style={{
+                        color: "#1a1a1a",
+                        marginBottom: "3px",
+                        fontSize: "12pt",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {line}
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "#1a1a1a", fontWeight: 700 }}>—</div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ marginBottom: "10px" }}>
+                <div style={{ ...labelStyle, marginBottom: "3px" }}>Payment</div>
+                <div style={{ fontWeight: 800, fontSize: "13pt", color: "#111" }}>
+                  {formatPaymentLabel(order.payment_method)}
+                </div>
+              </div>
+              <div>
+                <div style={{ ...labelStyle, marginBottom: "3px" }}>Total</div>
+                <div style={{ fontSize: "17pt", fontWeight: 900, color: "#0a0a0a" }}>
+                  {formatMinorUnits(order.total_cents, order.currency)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {order.customer_note ? (
+            <div
+              style={{
+                marginBottom: "16px",
+                fontSize: "11pt",
+                color: "#222",
+                fontWeight: 600,
+              }}
+            >
+              <span style={{ fontWeight: 900, color: "#0a0a0a" }}>Note: </span>
+              {order.customer_note}
+            </div>
+          ) : null}
+
+          {/* Items */}
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ ...labelStyle, marginBottom: "8px", color: BRAND }}>Items</div>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "12pt",
+                fontWeight: 600,
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      borderBottom: "2px solid #222",
+                      padding: "0 12px 8px 0",
+                      fontWeight: 800,
+                      color: "#333",
+                      fontSize: "8pt",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Product
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "center",
+                      borderBottom: "2px solid #222",
+                      padding: "0 12px 8px",
+                      fontWeight: 800,
+                      color: "#333",
+                      fontSize: "8pt",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      width: "64px",
+                    }}
+                  >
+                    Qty
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      borderBottom: "2px solid #222",
+                      padding: "0 0 8px 12px",
+                      fontWeight: 800,
+                      color: "#333",
+                      fontSize: "8pt",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      width: "110px",
+                    }}
+                  >
+                    Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((line) => {
+                  const opts = formatOptionSnapshot(line.option_values_snapshot);
+                  return (
+                    <tr key={line.id}>
+                      <td
+                        style={{
+                          padding: "8px 12px 8px 0",
+                          borderBottom: "1.5px solid #ddd",
+                          verticalAlign: "top",
+                        }}
+                      >
+                        <div style={{ fontWeight: 800, color: "#0a0a0a" }}>
+                          {line.product_name_snapshot}
+                        </div>
+                        {opts ? (
+                          <div
+                            style={{
+                              fontSize: "9.5pt",
+                              color: "#444",
+                              marginTop: "2px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {opts}
+                          </div>
+                        ) : null}
+                        {line.sku_snapshot ? (
+                          <div
+                            style={{
+                              fontSize: "9pt",
+                              color: "#666",
+                              marginTop: "2px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            SKU {line.sku_snapshot}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 12px",
+                          borderBottom: "1.5px solid #ddd",
+                          textAlign: "center",
+                          verticalAlign: "top",
+                          fontWeight: 900,
+                          fontSize: "13pt",
+                          color: "#0a0a0a",
+                        }}
+                      >
+                        {line.quantity}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 0 8px 12px",
+                          borderBottom: "1.5px solid #ddd",
+                          textAlign: "right",
+                          verticalAlign: "top",
+                          fontWeight: 800,
+                          color: "#111",
+                        }}
+                      >
+                        {formatMinorUnits(line.line_subtotal_cents, order.currency)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals */}
+          <div style={{ maxWidth: "280px", marginLeft: "auto", marginBottom: "18px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "5px",
+                color: "#333",
+                fontWeight: 700,
+                fontSize: "11pt",
+              }}
+            >
+              <span>Subtotal</span>
+              <span style={{ color: "#111", fontWeight: 800 }}>
+                {formatMinorUnits(order.subtotal_cents, order.currency)}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "5px",
+                color: "#333",
+                fontWeight: 700,
+                fontSize: "11pt",
+              }}
+            >
+              <span>Shipping</span>
+              <span style={{ color: "#111", fontWeight: 800 }}>
+                {formatMinorUnits(order.shipping_cents, order.currency)}
+              </span>
+            </div>
+            {order.discount_cents > 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "5px",
+                  color: "#333",
+                  fontWeight: 700,
+                  fontSize: "11pt",
+                }}
+              >
+                <span>Discount</span>
+                <span style={{ color: "#111", fontWeight: 800 }}>
+                  −{formatMinorUnits(order.discount_cents, order.currency)}
+                </span>
+              </div>
+            ) : null}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "8px",
+                paddingTop: "8px",
+                borderTop: `3px solid ${BRAND}`,
+                fontWeight: 900,
+                fontSize: "14pt",
+                color: "#0a0a0a",
+              }}
+            >
+              <span>Total</span>
+              <span>{formatMinorUnits(order.total_cents, order.currency)}</span>
+            </div>
+          </div>
+
+          {/* QR + email at bottom */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
+              paddingTop: "12px",
+              borderTop: "2px solid #222",
+            }}
+          >
+            <div>
+              <div style={{ ...labelStyle, marginBottom: "3px", color: BRAND }}>Scan order</div>
+              <div style={{ fontSize: "10pt", color: "#333", fontWeight: 700 }}>
+                Open this order in admin
+              </div>
+              {store?.supportEmail ? (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "11pt",
+                    color: "#111",
+                    fontWeight: 800,
+                  }}
+                >
+                  {store.supportEmail}
+                </div>
+              ) : null}
+            </div>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt={`QR for order ${ref}`}
+                width={148}
+                height={148}
+                style={{
+                  display: "block",
+                  width: 148,
+                  height: 148,
+                  border: "2px solid #222",
+                  borderRadius: "6px",
+                  padding: "4px",
+                  background: "#fff",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 148,
+                  height: 148,
+                  border: "2px solid #222",
+                  borderRadius: "6px",
+                  background: "#f7f7f7",
+                }}
+              />
+            )}
+          </div>
         </div>
-        <div style={{ textAlign: "right", fontFamily: "ui-monospace, monospace", fontSize: "7.5pt" }}>
-          {qrTarget}
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }

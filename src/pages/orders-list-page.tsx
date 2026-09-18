@@ -51,7 +51,7 @@ import {
   loadOrdersListPrefs,
   saveOrdersListPrefs,
 } from "@/lib/admin-orders-prefs";
-import { copyTextToClipboard, formatOrderListCopyText } from "@/lib/order-dispatch";
+import { copyTextToClipboard, formatOrderListCopyText, formatOrderWhatsAppConfirmation } from "@/lib/order-dispatch";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 const PAGE_SIZE = 25;
@@ -219,10 +219,7 @@ export function OrdersListPage() {
   }
 
   function whatsAppOrder(o: OrderRow) {
-    const url = buildWhatsAppUrl(
-      o.phone,
-      `Hi ${o.first_name || "there"}, regarding your order ${o.order_number ?? o.id.slice(0, 8)} from SimpleCart Store.`,
-    );
+    const url = buildWhatsAppUrl(o.phone, formatOrderWhatsAppConfirmation(o));
     if (!url) {
       toast.error("No valid phone on this order.");
       return;

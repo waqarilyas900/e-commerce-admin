@@ -50,7 +50,7 @@ import {
 } from "@/lib/order-lanes";
 import { formatMinorUnits } from "@/lib/format-money";
 import { supabase } from "@/lib/supabase/client";
-import { copyTextToClipboard, formatOrderDispatchText } from "@/lib/order-dispatch";
+import { copyTextToClipboard, formatOrderDispatchText, formatOrderWhatsAppConfirmation } from "@/lib/order-dispatch";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { fetchStoreSettings } from "@/lib/supabase/store-settings";
 
@@ -65,10 +65,10 @@ const STATUSES: OrderStatus[] = [
   "refunded",
 ];
 
-const ORDER_PAGE = "space-y-4";
+const ORDER_PAGE = "space-y-6";
 const CARD_H =
-  "flex !flex-row items-center justify-between !space-y-0 border-b border-border/60 !p-0 px-4 py-3";
-const CARD_B = "space-y-3 !p-0 px-4 py-3";
+  "flex flex-row items-center justify-between space-y-0 border-b border-border/60 px-5 py-4";
+const CARD_B = "space-y-3 px-5 py-4";
 
 function MoneyRow({
   label,
@@ -293,7 +293,7 @@ export function OrderDetailPage() {
 
   function onWhatsAppCustomer() {
     if (!order) return;
-    const url = buildWhatsAppUrl(order.phone, formatOrderDispatchText(order, items));
+    const url = buildWhatsAppUrl(order.phone, formatOrderWhatsAppConfirmation(order, items));
     if (!url) {
       toast.error("No valid phone on this order.");
       return;
@@ -323,7 +323,7 @@ export function OrderDetailPage() {
             ? formatPlacedAt(order.created_at)
             : "Line items, payment, fulfillment, and packing slip."
         }
-        className="mb-0 pb-3 [&_h1]:font-mono"
+        className="mb-2 space-y-3 border-b border-border/60 pb-5 [&_h1]:font-mono"
         backLink={{ to: "/dashboard/orders", label: "Orders" }}
         actions={
           order ? (
@@ -334,7 +334,7 @@ export function OrderDetailPage() {
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={onWhatsAppCustomer}>
                 <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
-                WhatsApp
+                WhatsApp confirm
               </Button>
               <Button
                 type="button"
@@ -390,7 +390,7 @@ export function OrderDetailPage() {
       ) : (
         <>
           {pay && fulfill ? (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant={paymentLaneVariant(pay)} className="font-medium">
                 {PAYMENT_LANE_LABELS[pay]}
               </Badge>
@@ -408,9 +408,9 @@ export function OrderDetailPage() {
 
           <OrderPackingSlip order={order} items={items} store={slipStore} />
 
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
             {/* ——— Main column ——— */}
-            <div className="space-y-4">
+            <div className="space-y-5">
               <Card className={ADMIN_LIST_CARD_CLASS}>
                 <CardHeader className={CARD_H}>
                   <div>
@@ -428,14 +428,14 @@ export function OrderDetailPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {items.length === 0 ? (
-                    <p className="px-4 py-6 text-sm text-muted-foreground">No line items.</p>
+                    <p className="px-5 py-6 text-sm text-muted-foreground">No line items.</p>
                   ) : (
                     <ul className="divide-y divide-border/60">
                       {items.map((line) => {
                         const img = line.primary_image_url_snapshot?.trim() || "";
                         const opts = formatOptionSnapshot(line.option_values_snapshot);
                         return (
-                          <li key={line.id} className="flex gap-3 px-4 py-3">
+                          <li key={line.id} className="flex gap-4 px-5 py-4">
                             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40">
                               {img ? (
                                 <img
@@ -501,7 +501,7 @@ export function OrderDetailPage() {
                     </ul>
                   )}
 
-                  <div className="space-y-1.5 border-t border-border/60 bg-muted/10 px-4 py-3">
+                  <div className="space-y-2 border-t border-border/60 bg-muted/10 px-5 py-4">
                     <MoneyRow
                       label="Subtotal"
                       value={formatMinorUnits(order.subtotal_cents, order.currency)}
@@ -640,7 +640,7 @@ export function OrderDetailPage() {
             </div>
 
             {/* ——— Sidebar ——— */}
-            <aside className="space-y-4 lg:sticky lg:top-4">
+            <aside className="space-y-5 lg:sticky lg:top-4">
               <Card className={ADMIN_LIST_CARD_CLASS}>
                 <CardHeader className={CARD_H}>
                   <CardTitle className="text-[15px] font-semibold">Payment</CardTitle>
