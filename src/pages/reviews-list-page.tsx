@@ -20,10 +20,13 @@ import {
   adminThEnd,
   adminTd,
 } from "@/components/dashboard/admin-list-shell";
+import { AdminPagination } from "@/components/dashboard/admin-pagination";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AdminStandardDialogContent } from "@/components/ui/admin-standard-dialog";
 import {
   fetchReviewsAdmin,
+  countReviewsAdmin,
+  countReviewsByStatusAdmin,
   updateReviewStatusAdmin,
   deleteReviewAdmin,
   parseReviewMediaItems,
@@ -43,13 +46,19 @@ const TABS: Array<{ value: ReviewModerationStatus | "all"; label: string }> = [
 ];
 
 const STAR_LEVELS = [1, 2, 3, 4, 5] as const;
+const PAGE_SIZE = 50;
 
 export function ReviewsListPage() {
   const [rows, setRows] = useState<ReviewAdminRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<ReviewModerationStatus | "all">("pending");
+  const [filter, setFilter] = useState<ReviewModerationStatus | "all">("all");
   /** Which star ratings to include in the list (multi-select). At least one must stay on. */
   const [ratingFilter, setRatingFilter] = useState<number[]>(() => [...STAR_LEVELS]);
+  const [page, setPage] = useState(1);
+  const [totalFiltered, setTotalFiltered] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<
+    Record<ReviewModerationStatus | "all", number>
+  >({ all: 0, pending: 0, approved: 0, rejected: 0 });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
@@ -63,24 +72,36 @@ export function ReviewsListPage() {
     }
     setLoading(true);
     try {
-      const data = await fetchReviewsAdmin({
-        limit: 200,
-        status: filter,
-        ratings: ratingFilter.length > 0 ? ratingFilter : [...STAR_LEVELS],
-      });
+      const ratings = ratingFilter.length > 0 ? ratingFilter : [...STAR_LEVELS];
+      const [data, filteredTotal, byStatus] = await Promise.all([
+        fetchReviewsAdmin({
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+          status: filter,
+          ratings,
+        }),
+        countReviewsAdmin({ status: filter, ratings }),
+        countReviewsByStatusAdmin(),
+      ]);
       setRows(data);
+      setTotalFiltered(filteredTotal);
+      setStatusCounts(byStatus);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load reviews.");
     } finally {
       setLoading(false);
     }
-  }, [filter, ratingFilter]);
+  }, [filter, ratingFilter, page]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, ratingFilter]);
 
   function toggleRatingStar(n: number) {
     setRatingFilter((prev) => {
@@ -145,6 +166,9 @@ export function ReviewsListPage() {
             onClick={() => setFilter(t.value)}
           >
             {t.label}
+            <span className="ml-1.5 tabular-nums opacity-80">
+              ({statusCounts[t.value].toLocaleString("en-US")})
+            </span>
           </Button>
         ))}
       </AdminFilterBar>
@@ -189,7 +213,7 @@ export function ReviewsListPage() {
     <div className={ADMIN_LIST_PAGE_CLASS}>
       <PageHeader
         title="Reviews"
-        description="Moderate storefront reviews, delete spam, or add a review attributed to a customer account. Approved reviews show as Verified buyer on the PDP."
+        description={`Moderate storefront reviews (${statusCounts.all.toLocaleString("en-US")} total). Approved reviews show as Verified buyer on the PDP.`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => setCsvImportOpen(true)}>
@@ -239,7 +263,7 @@ export function ReviewsListPage() {
 
       <AdminListCard
         title="Moderation queue"
-        description="Product and reviewer names load from linked rows."
+        description={`${totalFiltered.toLocaleString("en-US")} reviews in this filter · page ${page}`}
         headerRight={filterBar}
       >
         {loading ? (
@@ -247,6 +271,7 @@ export function ReviewsListPage() {
         ) : rows.length === 0 ? (
           <AdminListEmpty>No reviews in this filter.</AdminListEmpty>
         ) : (
+          <>
           <TableContainer>
             <table className="w-full min-w-[1040px] text-left text-sm">
               <thead>
@@ -368,6 +393,14 @@ export function ReviewsListPage() {
               </tbody>
             </table>
           </TableContainer>
+          <AdminPagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={totalFiltered}
+            onPageChange={setPage}
+            className="mt-4"
+          />
+          </>
         )}
       </AdminListCard>
     </div>

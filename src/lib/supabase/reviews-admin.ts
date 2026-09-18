@@ -69,18 +69,20 @@ function reviewerLabelFromReviewRow(
 export async function fetchReviewsAdmin(options?: {
   status?: ReviewModerationStatus | "all";
   limit?: number;
+  offset?: number;
   /** If non-empty, only rows whose `rating` is in this set (typically 1–5 star levels). */
   ratings?: number[];
 }): Promise<ReviewAdminRow[]> {
   if (!supabase) return [];
   const limit = Math.min(options?.limit ?? 100, 500);
+  const offset = Math.max(options?.offset ?? 0, 0);
   let q = supabase
     .from("reviews")
     .select(
       "id, product_id, user_id, attributed_display_name, attributed_display_email, rating, title, body, status, media, created_at, updated_at, users ( first_name, last_name )",
     )
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (options?.status && options.status !== "all") {
     q = q.eq("status", options.status);
   }
@@ -121,6 +123,50 @@ export async function fetchReviewsAdmin(options?: {
       reviewer_label,
     };
   });
+}
+
+export async function countReviewsAdmin(options?: {
+  status?: ReviewModerationStatus | "all";
+  ratings?: number[];
+}): Promise<number> {
+  if (!supabase) return 0;
+  let q = supabase.from("reviews").select("id", { count: "exact", head: true });
+  if (options?.status && options.status !== "all") {
+    q = q.eq("status", options.status);
+  }
+  const ratings = options?.ratings?.filter((n) => n >= 1 && n <= 5) ?? [];
+  if (ratings.length > 0) {
+    q = q.in("rating", ratings);
+  }
+  const { count, error } = await q;
+  if (error) {
+    logReviews("countReviewsAdmin", error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+export async function countReviewsByStatusAdmin(): Promise<
+  Record<ReviewModerationStatus | "all", number>
+> {
+  const empty = { all: 0, pending: 0, approved: 0, rejected: 0 } as const;
+  if (!supabase) return { ...empty };
+  const statuses: ReviewModerationStatus[] = ["pending", "approved", "rejected"];
+  const results = await Promise.all(
+    statuses.map((status) =>
+      supabase!
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("status", status)
+        .then((r) => ({ status, count: r.error ? 0 : (r.count ?? 0) })),
+    ),
+  );
+  const out = { ...empty, all: 0 };
+  for (const r of results) {
+    out[r.status] = r.count;
+    out.all += r.count;
+  }
+  return out;
 }
 
 export async function fetchReviewsByUserIdAdmin(
